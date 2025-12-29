@@ -6,6 +6,7 @@ interface ButtonProps extends TouchableOpacityProps {
     title: string;
     loading?: boolean;
     variant?: 'primary' | 'secondary' | 'outline';
+    textStyle?: any;
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -14,6 +15,7 @@ export const Button: React.FC<ButtonProps> = ({
     variant = 'primary',
     style,
     disabled,
+    textStyle,
     ...props
 }) => {
     return (
@@ -28,11 +30,14 @@ export const Button: React.FC<ButtonProps> = ({
             {...props}
         >
             {loading ? (
-                <ActivityIndicator color={COLORS.textInverse} />
+                <ActivityIndicator
+                    color={StyleSheet.flatten(textStyle)?.color || COLORS.textInverse}
+                />
             ) : (
                 <Text style={[
                     styles.text,
-                    variant === 'outline' && styles.textOutline
+                    variant === 'outline' && styles.textOutline,
+                    textStyle
                 ]}>
                     {title}
                 </Text>

@@ -65,6 +65,7 @@ export const LoginScreen = () => {
                             onChangeText={setEmail}
                             autoCapitalize="none"
                             keyboardType="email-address"
+                            placeholderTextColor="#9CA3AF"
                         />
 
                         <Input
@@ -73,6 +74,7 @@ export const LoginScreen = () => {
                             value={password}
                             onChangeText={setPassword}
                             secureTextEntry={!isPasswordVisible}
+                            placeholderTextColor="#9CA3AF"
                             renderRightAccessory={() => (
                                 <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
                                     {isPasswordVisible ? (
@@ -92,7 +94,12 @@ export const LoginScreen = () => {
                             title="Sign In"
                             onPress={handleLogin}
                             loading={isLoggingIn}
-                            style={styles.signInButton}
+                            disabled={!email.trim() || !password.trim()}
+                            style={[
+                                styles.signInButton,
+                                (email.trim() && password.trim()) && styles.signInButtonActive
+                            ]}
+                            textStyle={(email.trim() && password.trim()) && styles.signInTextActive}
                         />
                     </View>
                 </View>
@@ -169,5 +176,17 @@ const styles = StyleSheet.create({
     },
     signInButton: {
         marginTop: SPACING.s,
+    },
+    signInButtonActive: {
+        backgroundColor: '#fff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    signInTextActive: {
+        color: COLORS.primary,
+        fontWeight: 'bold',
     }
 });

@@ -8,7 +8,8 @@ import { CustomHeader } from '../components/CustomHeader';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { CCTVMonitorScreen } from '../screens/cctv/CCTVMonitorScreen';
 import NetworkMonitoringDashboard from '../screens/network/NetworkMonitoringDashboard';
-import { TicketQueueScreen, PerformanceScreen } from '../screens/dashboard/Placeholders';
+import ReportsScreen from '../screens/reports/ReportsScreen';
+import { TicketQueueScreen } from '../screens/dashboard/Placeholders';
 
 const Tab = createBottomTabNavigator();
 
@@ -44,7 +45,7 @@ export const TabNavigator = () => {
             <Tab.Screen name="CCTV" component={CCTVMonitorScreen} options={{ title: 'CCTV' }} />
             <Tab.Screen name="Tickets" component={TicketQueueScreen} options={{ title: 'Queue' }} />
             <Tab.Screen name="Network" component={NetworkMonitoringDashboard} options={{ title: 'Network' }} />
-            <Tab.Screen name="Performance" component={PerformanceScreen} options={{ title: 'Performance' }} />
+            <Tab.Screen name="Performance" component={ReportsScreen} options={{ title: 'Performance' }} />
         </Tab.Navigator>
     );
 };
