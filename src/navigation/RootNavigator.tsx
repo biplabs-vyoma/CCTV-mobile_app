@@ -2,14 +2,25 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AuthStack } from './AuthStack';
 import { TabNavigator } from './TabNavigator';
+import { useAuth } from '../context/AuthContext';
+import { SplashScreen } from '../screens/splash/SplashScreen';
 
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator = () => {
+    const { isAuthenticated, isLoading } = useAuth();
+
+    if (isLoading) {
+        return <SplashScreen />;
+    }
+
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Auth" component={AuthStack} />
-            <Stack.Screen name="Main" component={TabNavigator} />
+            {isAuthenticated ? (
+                <Stack.Screen name="Main" component={TabNavigator} />
+            ) : (
+                <Stack.Screen name="Auth" component={AuthStack} />
+            )}
         </Stack.Navigator>
     );
 };

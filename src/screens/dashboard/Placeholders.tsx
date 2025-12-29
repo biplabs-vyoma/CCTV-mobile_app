@@ -31,4 +31,4 @@ const styles = StyleSheet.create({
 export const CCTVMonitorScreen = () => <PlaceholderScreen title="CCTV Monitoring" />;
 export const TicketQueueScreen = () => <PlaceholderScreen title="Ticket Queue" />;
 export const NetworkMonitorScreen = () => <PlaceholderScreen title="Network Monitor" />;
-export const ProfileScreen = () => <PlaceholderScreen title="Profile" />;
+export const PerformanceScreen = () => <PlaceholderScreen title="System Performance" />;

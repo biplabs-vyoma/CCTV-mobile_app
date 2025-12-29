@@ -15,6 +15,10 @@ export const COLORS = {
     // Specific gradient stops or deviations
     loginGradientStart: '#1d4ed8',
     loginGradientEnd: '#3b82f6',
+
+    // Aliases / New Keys for CCTV Components
+    cardBackground: '#ffffff', // Same as surface
+    textPrimary: '#0f172a',    // Same as text
 };
 
 export const SPACING = {

@@ -1,35 +1,43 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, SafeAreaView, TouchableOpacity } from 'react-native';
 import { Wrench, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { Input } from '../../components/Input';
 import { Button } from '../../components/Button';
-import { ApiService } from '../../services/ApiService';
+import { useAuth } from '../../context/AuthContext';
+import { useAlert } from '../../context/AlertContext';
 
-export const LoginScreen = ({ navigation }: any) => {
+export const LoginScreen = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+    const { login } = useAuth();
+    const { showAlert } = useAlert();
 
     const handleLogin = async () => {
         if (!email || !password) {
-            Alert.alert("Error", "Please enter email and password");
+            showAlert({
+                title: "Error",
+                message: "Please enter email and password",
+                type: 'error',
+                confirmText: "Okay"
+            });
             return;
         }
 
-        setIsLoading(true);
+        setIsLoggingIn(true);
         try {
-            await ApiService.login(email, password);
-            // Navigation reset to Dashboard
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'Main' }],
-            });
+            await login({ email, password });
+            // Navigation is handled automatically by AuthContext
         } catch (error) {
-            Alert.alert("Login Failed", "Invalid credentials");
-        } finally {
-            setIsLoading(false);
+            setIsLoggingIn(false);
+            showAlert({
+                title: "Login Failed",
+                message: error instanceof Error ? error.message : "Invalid credentials",
+                type: 'error',
+                confirmText: "Try Again"
+            });
         }
     };
 
@@ -38,13 +46,7 @@ export const LoginScreen = ({ navigation }: any) => {
             <StatusBar barStyle="light-content" backgroundColor={COLORS.loginGradientStart} />
             <SafeAreaView style={styles.safeArea}>
                 {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity style={styles.backButton}>
-                        {/* Dummy back button as in design */}
-                        <ArrowLeft size={24} color={COLORS.textInverse} />
-                        <Text style={styles.backText}>Change Role</Text>
-                    </TouchableOpacity>
-                </View>
+
 
                 <View style={styles.content}>
                     {/* Icon */}
@@ -89,7 +91,7 @@ export const LoginScreen = ({ navigation }: any) => {
                         <Button
                             title="Sign In"
                             onPress={handleLogin}
-                            loading={isLoading}
+                            loading={isLoggingIn}
                             style={styles.signInButton}
                         />
                     </View>

@@ -1,16 +1,9 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, StatusBar } from 'react-native';
 import { COLORS, FONT_SIZES, SPACING } from '../../constants/theme';
 import { ShieldCheck } from 'lucide-react-native'; // Assuming Lucide icon for logo
 
-export const SplashScreen = ({ navigation }: any) => {
-    useEffect(() => {
-        const timer = setTimeout(() => {
-            navigation.replace('Login');
-        }, 2000); // 2 seconds splash
-
-        return () => clearTimeout(timer);
-    }, []);
+export const SplashScreen = () => {
 
     return (
         <View style={styles.container}>
