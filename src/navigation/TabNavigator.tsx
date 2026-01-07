@@ -8,7 +8,8 @@ import { CustomHeader } from '../components/CustomHeader';
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { CCTVMonitorScreen } from '../screens/cctv/CCTVMonitorScreen';
 import NetworkMonitoringDashboard from '../screens/network/NetworkMonitoringDashboard';
-import { TicketQueueScreen, PerformanceScreen } from '../screens/dashboard/Placeholders';
+import { PerformanceScreen } from '../screens/dashboard/Placeholders';
+import { TicketQueueScreen } from '../screens/tickets/TicketQueueScreen';
 
 const Tab = createBottomTabNavigator();
 
