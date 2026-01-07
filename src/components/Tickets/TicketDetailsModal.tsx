@@ -14,7 +14,7 @@ import {
     Platform,
     PermissionsAndroid
 } from 'react-native';
-import { launchCamera } from 'react-native-image-picker';
+import { CameraCapture } from '../CameraCapture';
 import {
     X,
     Clock,
@@ -79,6 +79,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     const [statusOptions, setStatusOptions] = useState<any[]>([]);
     const [selectedStatusId, setSelectedStatusId] = useState('');
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+    const [showCamera, setShowCamera] = useState(false);
     const [alertConfig, setAlertConfig] = useState<{
         visible: boolean;
         title: string;
@@ -235,82 +236,28 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             getFieldEnginnerByVendor();
         }
         if (activeTab === 'status') {
-            // Fetch location and statuses when status tab is opened
-            fetchCurrentLocation();
+            // Reset location to empty when opening status tab
+            // Location will only be set when user takes a photo
+            setCurrentLocation({ latitude: '', longitude: '' });
+            setCapturedImage(null);
+            // Only fetch status options, location will be captured when photo is taken
             getStatusOptions();
         }
     }, [activeTab]);
 
-    const fetchCurrentLocation = () => {
-        // Simulating location fetch
-        // In a real app, use: Geolocation.getCurrentPosition(pos => ...)
-        setCurrentLocation({ latitude: 'Fetching...', longitude: 'Fetching...' });
-        setTimeout(() => {
-            setCurrentLocation({
-                latitude: '22.5726',
-                longitude: '88.3639'
-            });
-        }, 1500);
+    // Location is now only captured when user takes a photo via the camera
+    // No automatic location fetching with hardcoded values
+
+    const handleCaptureImage = () => {
+        setShowCamera(true);
     };
 
-    const handleCaptureImage = async () => {
-        const options: any = {
-            mediaType: 'photo',
-            includeBase64: true,
-            quality: 0.7,
-            maxWidth: 1024,
-            maxHeight: 1024,
-            saveToPhotos: false,
-        };
-
-        try {
-            // Request camera permission on Android
-            if (Platform.OS === 'android') {
-                const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
-
-                if (!hasPermission) {
-                    const granted = await PermissionsAndroid.request(
-                        PermissionsAndroid.PERMISSIONS.CAMERA,
-                        {
-                            title: 'Camera Permission',
-                            message: 'App needs camera permission to capture evidence photos.',
-                            buttonPositive: 'OK',
-                        }
-                    );
-
-                    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-                        toast.error('Camera permission is required');
-                        return;
-                    }
-                }
-            }
-
-            // Validate native module
-            if (typeof launchCamera !== 'function') {
-                Alert.alert('Camera Error', 'Camera module not available. Please restart the app.');
-                return;
-            }
-
-            // Launch camera
-            const result = await launchCamera(options);
-
-            if (result.didCancel) {
-                // User cancelled - no action needed
-                return;
-            } else if (result.errorCode) {
-                Alert.alert('Camera Error', result.errorMessage || 'Failed to open camera');
-                toast.error('Camera failure: ' + (result.errorMessage || result.errorCode));
-            } else if (result.assets && result.assets[0].base64) {
-                const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
-                setCapturedImage(base64Data);
-                toast.success('Photo captured successfully');
-            } else {
-                Alert.alert('Error', 'No image data returned from camera');
-            }
-        } catch (error: any) {
-            Alert.alert('Camera Exception', error?.message || 'Unknown error occurred');
-            toast.error('Error opening camera: ' + (error?.message || 'Unknown'));
-        }
+    const handleCameraCapture = (base64: string, latitude: string, longitude: string) => {
+        setCapturedImage(base64);
+        setCurrentLocation({ latitude, longitude });
+        setShowCamera(false);
+        // No toast notification - silently save the photo with GPS coordinates
+        console.log('Photo saved with location:', latitude, longitude);
     };
 
     const handleUpdateEngineerStatus = async () => {
@@ -791,9 +738,9 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             </Modal>
                                         </View>
 
-                                        {/* Location Fields - Auto-fetch current location */}
+                                        {/* Location Fields - Captured from photo */}
                                         <View style={styles.locationContainer}>
-                                            <Text style={styles.sectionLabel}>Current Location (Auto-captured)</Text>
+                                            <Text style={styles.sectionLabel}>GPS Location (Captured from Photo)</Text>
                                             <View style={styles.locationRow}>
                                                 <View style={styles.locationField}>
                                                     <Text style={styles.inputLabel}>Latitude</Text>
@@ -801,7 +748,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                         style={[styles.input, styles.disabledInput]}
                                                         value={currentLocation.latitude}
                                                         editable={false}
-                                                        placeholder="Fetching..."
+                                                        placeholder="Click photo"
+                                                        placeholderTextColor="#9ca3af"
                                                     />
                                                 </View>
                                                 <View style={styles.locationField}>
@@ -810,7 +758,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                         style={[styles.input, styles.disabledInput]}
                                                         value={currentLocation.longitude}
                                                         editable={false}
-                                                        placeholder="Fetching..."
+                                                        placeholder="Click photo"
+                                                        placeholderTextColor="#9ca3af"
                                                     />
                                                 </View>
                                             </View>
@@ -981,6 +930,16 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                     }
                 }}
             />
+
+            {/* Camera Modal */}
+            {showCamera && (
+                <Modal visible={true} animationType="slide" statusBarTranslucent>
+                    <CameraCapture
+                        onCapture={handleCameraCapture}
+                        onClose={() => setShowCamera(false)}
+                    />
+                </Modal>
+            )}
         </Modal>
     );
 };
