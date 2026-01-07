@@ -43,7 +43,7 @@ export const LoginScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={COLORS.loginGradientStart} />
+            <StatusBar barStyle="light-content" backgroundColor={COLORS?.loginGradientStart || '#1d4ed8'} />
             <SafeAreaView style={styles.safeArea}>
                 {/* Header */}
 
@@ -51,7 +51,7 @@ export const LoginScreen = () => {
                 <View style={styles.content}>
                     {/* Icon */}
                     <View style={styles.iconContainer}>
-                        <Wrench size={32} color={COLORS.textInverse} />
+                        <Wrench size={32} color={COLORS?.textInverse || '#fff'} />
                     </View>
 
                     <Text style={styles.title}>Field Engineer Login</Text>
@@ -78,9 +78,9 @@ export const LoginScreen = () => {
                             renderRightAccessory={() => (
                                 <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
                                     {isPasswordVisible ? (
-                                        <EyeOff size={20} color={COLORS.textInverse} />
+                                        <EyeOff size={20} color={COLORS?.textInverse || '#fff'} />
                                     ) : (
-                                        <Eye size={20} color={COLORS.textInverse} opacity={0.7} />
+                                        <Eye size={20} color={COLORS?.textInverse || '#fff'} opacity={0.7} />
                                     )}
                                 </TouchableOpacity>
                             )}
@@ -111,7 +111,7 @@ export const LoginScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.primary, // Should implement proper gradient if possible, but solid color for now
+        backgroundColor: COLORS?.primary || '#2563eb', // Should implement proper gradient if possible, but solid color for now
     },
     safeArea: {
         flex: 1,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
         // Actually image shows centered "Change Role" at top with back arrow.
     },
     backText: {
-        color: COLORS.textInverse,
+        color: COLORS?.textInverse || '#fff',
         fontSize: FONT_SIZES.m,
         fontWeight: '600',
         marginLeft: SPACING.s,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: FONT_SIZES.xxl,
         fontWeight: 'bold',
-        color: COLORS.textInverse,
+        color: COLORS?.textInverse || '#fff',
         marginBottom: SPACING.xs,
     },
     subtitle: {
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
         marginBottom: SPACING.l,
     },
     forgotPasswordText: {
-        color: COLORS.textInverse,
+        color: COLORS?.textInverse || '#fff',
         fontSize: FONT_SIZES.s,
     },
     signInButton: {
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     signInTextActive: {
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
         fontWeight: 'bold',
     }
 });

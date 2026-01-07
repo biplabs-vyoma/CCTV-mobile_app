@@ -109,12 +109,12 @@ export const TicketList: React.FC<TicketListProps> = ({ tickets }) => {
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderRadius: BORDER_RADIUS.m,
         padding: SPACING.m,
         marginBottom: SPACING.m,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         elevation: 2,
     },
     cardTitle: {
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     },
     borderBottom: {
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS?.border || '#ccc',
         marginBottom: SPACING.s,
     },
     row: {

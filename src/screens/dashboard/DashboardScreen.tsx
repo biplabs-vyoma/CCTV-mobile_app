@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, SPACING } from '../../constants/theme';
 import { fetchDashboardDetails, fetchRecentTickets } from '../../services/api/dashboardApi';
@@ -15,6 +16,7 @@ import { TicketList } from '../../components/dashboard/TicketList';
 import { CustomLoader } from '../../components/CustomLoader';
 
 export const DashboardScreen = () => {
+    const navigation = useNavigation<any>();
     const { user } = useAuth();
     const [dashboardData, setDashboardData] = useState<DashboardStats | null>(null);
     const [recentTickets, setRecentTickets] = useState<TicketApiResponse[]>([]);
@@ -34,6 +36,8 @@ export const DashboardScreen = () => {
                 fetchDashboardDetails(user?.user_id, user?.user_type_id),
                 fetchRecentTickets(user?.user_id, user?.user_type_id)
             ]);
+
+
 
             console.log("statsData", statsData);
             console.log("ticketsData", ticketsData);
@@ -68,40 +72,37 @@ export const DashboardScreen = () => {
         <ScrollView
             style={styles.container}
             contentContainerStyle={styles.content}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS?.primary || '#2563eb']} />}
         >
             <View style={styles.grid}>
-                <>
-                    <StatsCard
-                        title="Total Resolved"
-                        value={dashboardData?.total_resloved_ticket || 0}
-                        change="Successfully closed"
-                        changeType="positive"
-                        icon={CheckCircle}
-                        color="green"
-                    />
-                    <StatsCard
-                        title="In-Progress"
-                        value={dashboardData?.total_inprogress_ticket || 0}
-                        change="Currently active"
-                        changeType="neutral"
-                        icon={Activity}
-                        color="orange"
-                    />
-                    <StatsCard
-                        title="Assigned"
-                        value={dashboardData?.total_assigned_ticket || 0}
-                        change="Assigned to you"
-                        changeType="neutral"
-                        icon={ClipboardList}
-                        color="blue"
-                    />
-                </>
-
+                <View style={styles.row}>
+                    <View style={styles.col}>
+                        <StatsCard
+                            title="In-Progress"
+                            value={dashboardData?.total_inprogress_ticket || 0}
+                            change="Currently active"
+                            changeType="neutral"
+                            icon={Activity}
+                            color="orange"
+                            onPress={() => navigation.navigate('Tickets', { sid: '230', disableStatusFilter: true, timestamp: Date.now() })}
+                        />
+                    </View>
+                    <View style={styles.col}>
+                        <StatsCard
+                            title="Assigned"
+                            value={dashboardData?.total_assigned_ticket || 0}
+                            change="Assigned to you"
+                            changeType="neutral"
+                            icon={ClipboardList}
+                            color="blue"
+                            onPress={() => navigation.navigate('Tickets', { sid: '220', disableStatusFilter: true, timestamp: Date.now() })}
+                        />
+                    </View>
+                </View>
             </View>
 
             {/* Charts & Lists */}
-            {dashboardData && <CCTVStatusChart stats={dashboardData} />}
+            {/* {dashboardData && <CCTVStatusChart stats={dashboardData} />} */}
 
             <TicketList tickets={recentTickets} />
         </ScrollView>
@@ -111,7 +112,7 @@ export const DashboardScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
     },
     content: {
         padding: SPACING.m,

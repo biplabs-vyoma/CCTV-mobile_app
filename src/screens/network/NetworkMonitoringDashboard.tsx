@@ -194,7 +194,8 @@ const NetworkMonitoringDashboard = () => {
                                         <View style={[styles.iconBox, { backgroundColor: getHealthColor(networkHealth.overallHealth) + '20' }]}>
                                             {networkHealth.overallHealth === 'excellent' ? <CheckCircle size={24} color={COLORS.success} /> :
                                                 networkHealth.overallHealth === 'good' ? <TrendingUp size={24} color={COLORS.primary} /> :
-                                                    networkHealth.overallHealth === 'fair' ? <Activity size={24} color={COLORS.warning} /> :
+                                                    networkHealth.overallHealth === 'fair' ? <Activity size={24} color={COLORS?.warning || '#eab308'}
+                                                    /> :
                                                         <TrendingDown size={24} color={COLORS.error} />}
                                         </View>
                                     </View>
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: COLORS.surface,
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS?.border || '#ccc'
     },
     headerTitle: {
         fontSize: FONT_SIZES.l,
@@ -361,7 +362,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
         borderRadius: BORDER_RADIUS.m,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc'
     },
     forceScanButton: {
         padding: SPACING.s,
@@ -393,7 +394,7 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.success,
     },
     stopButton: {
-        backgroundColor: COLORS.error,
+        backgroundColor: COLORS?.primary || '#2563eb'
     },
     mainControlText: {
         color: '#fff',

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -20,8 +20,7 @@ import { Plus, Activity, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-r
 
 export const CCTVMonitorScreen = () => {
     const { user } = useAuth();
-    const [cctvsData, setCCTVsData] = useState<CCTVDevice[]>([]);
-    const [filteredData, setFilteredData] = useState<CCTVDevice[]>([]);
+    const [cctvsData, setCCTVsData] = useState<CCTVDevice[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -75,8 +74,9 @@ export const CCTVMonitorScreen = () => {
     }, [filters.status, filters.zone, filters.vendor]); // Refetch on core API filters
 
     // Local Filtering (Search + complex logic)
-    useEffect(() => {
-        let result = cctvsData;
+    const filteredData = useMemo(() => {
+        if (!cctvsData) return null;
+        let result = [...cctvsData];
 
         // 1. Search Filter
         if (filters.search) {
@@ -92,9 +92,13 @@ export const CCTVMonitorScreen = () => {
             result = result.filter(c => c.cctv_vendor_name === filters.vendor_name);
         }
 
-        setFilteredData(result);
-        setCurrentPage(1); // Reset pagination on filter change
-    }, [cctvsData, filters.search, filters.vendor_name]);
+        return result;
+    }, [cctvsData, filters.search, filters.vendor_name, user?.vendor_id, filters.vendor]);
+
+    // Reset pagination on filter change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filters.search, filters.vendor_name, filters.status, filters.zone, filters.vendor]);
 
 
     const onRefresh = () => {
@@ -103,8 +107,8 @@ export const CCTVMonitorScreen = () => {
     };
 
     // Pagination Logic
-    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-    const paginatedData = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const totalPages = useMemo(() => Math.ceil((filteredData?.length || 0) / itemsPerPage), [filteredData?.length]);
+    const paginatedData = useMemo(() => (filteredData || []).slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage), [filteredData, currentPage]);
 
     const handlePageChange = (page: number) => {
         if (page >= 1 && page <= totalPages) setCurrentPage(page);
@@ -136,7 +140,7 @@ export const CCTVMonitorScreen = () => {
                 <View style={styles.infoRow}><Text style={styles.label}>Vendor:</Text><Text style={[styles.value]}>{item.cctv_vendor_name}</Text></View>
                 <View style={styles.infoRow}><Text style={styles.label}>Last Seen:</Text><Text style={[styles.value]}>{item.lastSeen || 'N/A'}</Text></View>
                 <View style={styles.infoRow}><Text style={styles.label}>IP:Port:</Text><Text style={[styles.value]}>{item.cctv_ip_port || 'N/A'}</Text></View>
-                <View style={styles.infoRow}><Text style={styles.label}>Uptime:</Text><Text style={[styles.value, ]}>{item.up_time ? `${item.up_time}%` : 'N/A'}</Text></View>
+                <View style={styles.infoRow}><Text style={styles.label}>Uptime:</Text><Text style={[styles.value,]}>{item.up_time ? `${item.up_time}%` : 'N/A'}</Text></View>
             </View>
             {
                 canRunDiagnostics && (
@@ -173,7 +177,7 @@ export const CCTVMonitorScreen = () => {
             <CCTVFilters
                 filters={filters}
                 onFilterChange={setFilters}
-                totalCameras={cctvsData.length}
+                totalCameras={filteredData?.length || 0}
                 user={user}
             />
 
@@ -187,10 +191,14 @@ export const CCTVMonitorScreen = () => {
                     contentContainerStyle={styles.listContent}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                     ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <AlertCircle size={48} color={COLORS.textSecondary} />
-                            <Text style={styles.emptyText}>No cameras found</Text>
-                        </View>
+                        !isLoading ? (
+                            <View style={styles.emptyState}>
+                                <AlertCircle size={48} color={COLORS.textSecondary} />
+                                <Text style={styles.emptyText}>
+                                    {cctvsData === null ? 'Loading data...' : 'No cameras found'}
+                                </Text>
+                            </View>
+                        ) : null
                     }
                 />
             )}
@@ -203,7 +211,8 @@ export const CCTVMonitorScreen = () => {
                         onPress={() => handlePageChange(currentPage - 1)}
                         style={[styles.pageButton, currentPage === 1 && styles.pageButtonDisabled]}
                     >
-                        <ChevronLeft size={20} color={currentPage === 1 ? COLORS.textSecondary : COLORS.primary} />
+                        <ChevronLeft size={20} color={currentPage === 1 ? (COLORS?.textSecondary || '#666') : (COLORS?.primary || '#2563eb')}
+                        />
                     </TouchableOpacity>
                     <Text style={styles.pageText}>Page {currentPage} of {totalPages}</Text>
                     <TouchableOpacity
@@ -211,7 +220,8 @@ export const CCTVMonitorScreen = () => {
                         onPress={() => handlePageChange(currentPage + 1)}
                         style={[styles.pageButton, currentPage === totalPages && styles.pageButtonDisabled]}
                     >
-                        <ChevronRight size={20} color={currentPage === totalPages ? COLORS.textSecondary : COLORS.primary} />
+                        <ChevronRight size={20} color={currentPage === totalPages ? (COLORS?.textSecondary || '#666') : (COLORS?.primary || '#2563eb')}
+                        />
                     </TouchableOpacity>
                 </View>
             )}
@@ -237,35 +247,35 @@ export const CCTVMonitorScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9'
     },
     topBar: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: SPACING.m,
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#ffffff',
     },
     screenTitle: {
         fontSize: FONT_SIZES.l,
         fontWeight: 'bold',
-        color: COLORS.textPrimary,
+        color: COLORS?.textPrimary || '#1f2937',
     },
     screenSubtitle: {
         fontSize: FONT_SIZES.s,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#6b7280',
     },
     addButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
         paddingHorizontal: SPACING.m,
         paddingVertical: SPACING.s,
         borderRadius: BORDER_RADIUS.m,
         gap: SPACING.s,
     },
     addButtonText: {
-        color: COLORS.textInverse,
+        color: COLORS?.textInverse || '#ffffff',
         fontWeight: '600',
         fontSize: FONT_SIZES.s,
     },
@@ -279,7 +289,7 @@ const styles = StyleSheet.create({
     },
     // Card Styles
     card: {
-        backgroundColor: COLORS.cardBackground,
+        backgroundColor: COLORS?.cardBackground || '#ffffff',
         padding: SPACING.m,
         borderRadius: BORDER_RADIUS.m,
         marginBottom: SPACING.m,
@@ -298,11 +308,11 @@ const styles = StyleSheet.create({
     cardTitle: {
         fontSize: FONT_SIZES.m,
         fontWeight: '600',
-        color: COLORS.textPrimary,
+        color: COLORS?.textPrimary || '#1f2937',
     },
     cardSubtitle: {
         fontSize: FONT_SIZES.xs,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#6b7280',
     },
     cardBody: {
         gap: 4,
@@ -314,19 +324,19 @@ const styles = StyleSheet.create({
     },
     label: {
         fontSize: FONT_SIZES.s,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#6b7280',
         width: 80,
     },
     value: {
         fontSize: FONT_SIZES.s,
-        color: COLORS.textPrimary,
+        color: COLORS?.textPrimary || '#1f2937',
         fontWeight: '500',
     },
     cardFooter: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
         borderTopWidth: 1,
-        borderTopColor: COLORS.border,
+        borderTopColor: COLORS?.border || '#e5e7eb',
         paddingTop: SPACING.s,
     },
     actionButton: {
@@ -340,7 +350,7 @@ const styles = StyleSheet.create({
     },
     actionButtonText: {
         fontSize: FONT_SIZES.xs,
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
         fontWeight: '600',
     },
     // Badge

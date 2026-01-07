@@ -70,9 +70,14 @@ export const CustomAlert = ({
         }
     };
 
-    // Using absolute positioning instead of Modal to guarantee visibility
+    // Using Modal for absolute full-screen coverage
     return (
-        <View style={styles.absoluteContainer} pointerEvents="auto">
+        <Modal
+            visible={visible}
+            transparent={true}
+            animationType="fade"
+            onRequestClose={onClose}
+        >
             <View style={styles.overlay}>
                 <Animated.View style={[
                     styles.alertContainer,
@@ -117,27 +122,17 @@ export const CustomAlert = ({
                     </View>
                 </Animated.View>
             </View>
-        </View>
+        </Modal>
     );
 };
 
 const styles = StyleSheet.create({
-    absoluteContainer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 9999,
-        elevation: 9999,
-    },
     overlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.7)', // Darker dim
         justifyContent: 'center',
         alignItems: 'center',
         padding: SPACING.l,
-        zIndex: 9999,
     },
     alertContainer: {
         width: width * 0.85,
@@ -194,16 +189,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     confirmButton: {
-        backgroundColor: COLORS.primary, // Brand Blue
+        backgroundColor: COLORS?.primary || '#2563eb',
+        // Brand Blue
         // Or accent color? Login uses Blue buttons.
         elevation: 4,
-        shadowColor: COLORS.primary,
+        shadowColor: COLORS?.primary || '#2563eb',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
     },
     confirmButtonText: {
-        color: COLORS.textInverse,
+        color: COLORS?.textInverse || '#fff',
         fontWeight: '600',
         fontSize: FONT_SIZES.m,
     },
@@ -214,7 +210,7 @@ const styles = StyleSheet.create({
         borderColor: 'rgba(255,255,255,0.2)',
     },
     cancelButtonText: {
-        color: COLORS.textInverse,
+        color: COLORS?.textInverse || '#fff',
         fontWeight: '500',
         fontSize: FONT_SIZES.m,
     },

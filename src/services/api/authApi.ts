@@ -130,10 +130,15 @@ export const callAPIWithEnc = async (
         const data = await response.json();
         let decryptedData: any = null;
 
+        console.log("data", data);
+
         if (data?.data) {
             const decrypted = await decryptData(data.data);
             decryptedData = JSON.parse(decrypted);
         }
+
+
+        console.log("decryptedData", decryptedData);
         return { ...data, data: decryptedData };
     } catch (error: any) {
         throw new Error(

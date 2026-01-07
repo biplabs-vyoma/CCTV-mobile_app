@@ -129,7 +129,8 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
                                     {item[labelField]}
                                 </Text>
                                 {currentValue === item[keyField].toString() && (
-                                    <Check size={20} color={COLORS.primary} />
+                                    <Check size={20} color={COLORS?.primary || '#2563eb'}
+                                    />
                                 )}
                             </TouchableOpacity>
                         )}
@@ -143,7 +144,7 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
         <View style={styles.container}>
             <View style={styles.header}>
                 <View style={styles.headerTitleRow}>
-                    <Filter size={20} color={COLORS.textSecondary} />
+                    <Filter size={20} color={COLORS?.textSecondary || '#666'} />
                     <Text style={styles.headerTitle}>Filters</Text>
                 </View>
                 <TouchableOpacity onPress={clearFilters}>
@@ -154,11 +155,11 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
             {/* Search Bar */}
             {!hideSearch && (
                 <View style={styles.searchContainer}>
-                    <Search size={20} color={COLORS.textSecondary} style={styles.searchIcon} />
+                    <Search size={20} color={COLORS?.textSecondary || '#666'} style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Search by name or location..."
-                        placeholderTextColor={COLORS.textSecondary}
+                        placeholderTextColor={COLORS?.textSecondary || '#666'}
                         value={filters.search}
                         onChangeText={(text) => handleFilterUpdate('search', text)}
                     />

@@ -422,7 +422,9 @@ const styles = StyleSheet.create({
     downloadText: {
         fontSize: 12,
         fontWeight: '600',
-        color: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb'
+            || '#2563eb'
+            || '#2563eb',
     },
     retryBtn: {
         flexDirection: 'row',

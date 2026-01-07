@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     container: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderRadius: 16,
         padding: 20,
         minHeight: 300,
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     body: {
         alignItems: 'center',

@@ -38,10 +38,10 @@ export const CustomHeader = () => {
                 {/* Left Side: Branding */}
                 <View style={styles.brandContainer}>
                     <View style={styles.logoBox}>
-                        <Shield size={24} color={COLORS.primary} fill="none" strokeWidth={2.5} />
+                        <Shield size={24} color={COLORS?.primary || '#2563eb'} fill="none" strokeWidth={2.5} />
                     </View>
                     <View>
-                        <Text style={styles.brandTitle}>CCTV Monitor</Text>
+                        <Text style={[styles.brandTitle, { color: COLORS?.primary || '#2563eb' }]}>CCTV Monitor</Text>
                         <Text style={styles.brandSubtitle}>Kolkata Police</Text>
                     </View>
                 </View>
@@ -54,7 +54,7 @@ export const CustomHeader = () => {
                     </View>
 
                     <View style={styles.avatarContainer}>
-                        <UserIcon size={20} color={COLORS.primary} />
+                        <UserIcon size={20} color={COLORS?.primary || '#2563eb'} />
                     </View>
 
                     <TouchableOpacity
@@ -76,9 +76,9 @@ export const CustomHeader = () => {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS?.border || '#ccc',
         paddingHorizontal: SPACING.s,
         paddingBottom: SPACING.m,
         elevation: 2,
@@ -101,17 +101,17 @@ const styles = StyleSheet.create({
     logoBox: {
         width: 40,
         height: 40,
-        backgroundColor: COLORS.background, // Light bg for logo
+        backgroundColor: COLORS?.background || '#f1f5f9', // Light bg for logo
         borderRadius: BORDER_RADIUS.m,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
     },
     brandTitle: {
-        fontSize: FONT_SIZES.m,
+        fontSize: FONT_SIZES?.m || 16,
         fontWeight: '700',
-        color: COLORS.secondary, // Deep Green
+        color: COLORS?.secondary || '#064e3b', // Deep Green
     },
     brandSubtitle: {
         fontSize: FONT_SIZES.xs,
@@ -130,12 +130,12 @@ const styles = StyleSheet.create({
     userName: {
         fontSize: FONT_SIZES.xs,
         fontWeight: '600',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginTop: 7,
     },
     userRole: {
         fontSize: 9,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#6b7280',
         backgroundColor: '#b3cfe1aa',
         padding: SPACING.xs,
         borderRadius: BORDER_RADIUS.m,

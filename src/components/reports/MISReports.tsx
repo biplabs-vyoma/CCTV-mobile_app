@@ -235,7 +235,8 @@ export const MISReports: React.FC = () => {
                             onPress={() => setSelectedReport(type.id)}
                         >
                             <View style={[styles.typeIconBox, isActive && styles.typeIconBoxActive]}>
-                                <Icon size={22} color={isActive ? COLORS.primary : COLORS.textSecondary} />
+                                <Icon size={22} color={isActive ? (COLORS?.primary || '#2563eb') : (COLORS?.textSecondary || '#666')}
+                                />
                             </View>
                             <Text style={[styles.typeLabel, isActive && styles.typeLabelActive]}>{type.label}</Text>
                         </TouchableOpacity>
@@ -337,10 +338,10 @@ const styles = StyleSheet.create({
     periodText: {
         fontSize: 12,
         fontWeight: '600',
-        color: COLORS.textPrimary,
+        color: COLORS?.textPrimary || '#1f2937',
     },
     exportBtn: {
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
         padding: 8,
         borderRadius: BORDER_RADIUS.s,
         alignItems: 'center',
@@ -363,11 +364,11 @@ const styles = StyleSheet.create({
         padding: SPACING.m,
         borderRadius: BORDER_RADIUS.m,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#e5e7eb',
         alignItems: 'center',
     },
     typeItemActive: {
-        borderColor: COLORS.primary,
+        borderColor: COLORS?.primary || '#2563eb',
         backgroundColor: '#f0f7ff',
     },
     typeIconBox: {

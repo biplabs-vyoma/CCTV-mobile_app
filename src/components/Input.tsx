@@ -21,7 +21,7 @@ export const Input: React.FC<InputProps> = ({
             <View style={[styles.inputContainer, error && styles.inputError]}>
                 <TextInput
                     style={[styles.input, style]}
-                    placeholderTextColor={COLORS.textSecondary}
+                    placeholderTextColor={COLORS?.textSecondary || '#666'}
                     {...props}
                 />
                 {renderRightAccessory && (
@@ -59,17 +59,17 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        color: COLORS.textInverse,
+        color: COLORS?.textInverse || '#fff',
         fontSize: FONT_SIZES.m,
     },
     inputError: {
-        borderColor: COLORS.error,
+        borderColor: COLORS?.error || '#ef4444',
     },
     rightAccessory: {
         marginLeft: SPACING.s,
     },
     errorText: {
-        color: COLORS.error,
+        color: COLORS?.error || '#ef4444',
         fontSize: FONT_SIZES.xs,
         marginTop: SPACING.xs,
     },

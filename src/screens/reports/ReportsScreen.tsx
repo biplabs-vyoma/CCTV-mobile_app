@@ -35,7 +35,8 @@ const ReportsScreen = () => {
                                 style={[styles.tab, isActive && styles.activeTab]}
                                 onPress={() => setActiveTab(tab.id as any)}
                             >
-                                <Icon size={18} color={isActive ? COLORS.primary : COLORS.textSecondary} />
+                                <Icon size={18} color={isActive ? (COLORS?.primary || '#2563eb') : (COLORS?.textSecondary || '#666')}
+                                />
                                 <Text style={[styles.tabLabel, isActive && styles.activeTabLabel]}>
                                     {tab.label}
                                 </Text>
@@ -66,17 +67,17 @@ const styles = StyleSheet.create({
     title: {
         fontSize: FONT_SIZES.xl,
         fontWeight: 'bold',
-        color: COLORS.textPrimary,
+        color: COLORS?.textPrimary || '#1f2937'
     },
     subtitle: {
         fontSize: FONT_SIZES.s,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#6b7280',
         marginTop: 4,
     },
     tabsContainer: {
         backgroundColor: '#fff',
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS?.border || '#ccc'
     },
     tabsWrapper: {
         flexDirection: 'row',
@@ -92,15 +93,15 @@ const styles = StyleSheet.create({
         borderBottomColor: 'transparent',
     },
     activeTab: {
-        borderBottomColor: COLORS.primary,
+        borderBottomColor: COLORS?.primary || '#2563eb'
     },
     tabLabel: {
         fontSize: 12, // Slightly smaller to ensure fit
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#6b7280',
         fontWeight: '500',
     },
     activeTabLabel: {
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
         fontWeight: 'bold',
     },
     content: {

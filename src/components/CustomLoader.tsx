@@ -62,7 +62,7 @@ export const CustomLoader = ({ visible, message = 'Loading...', overlay = true }
 
                 {/* Pulsing Icon */}
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                    <Shield size={48} color={COLORS.primary} fill={COLORS.surface} strokeWidth={1} />
+                    <Shield size={48} color={COLORS?.primary || '#2563eb'} fill={COLORS?.surface || '#fff'} strokeWidth={1} />
                 </Animated.View>
             </View>
             <Text style={styles.message}>{message}</Text>
@@ -102,12 +102,12 @@ const styles = StyleSheet.create({
     loaderBox: {
         width: 160,
         height: 160,
-        backgroundColor: COLORS.surface, // Or glass dark 'rgba(15, 23, 42, 0.9)'
-        borderRadius: BORDER_RADIUS.xl,
+        backgroundColor: COLORS?.surface || '#fff', // Or glass dark 'rgba(15, 23, 42, 0.9)'
+        borderRadius: BORDER_RADIUS?.xl || 20,
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 10,
-        shadowColor: COLORS.primary,
+        shadowColor: COLORS?.primary || '#2563eb',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 10,
@@ -131,9 +131,9 @@ const styles = StyleSheet.create({
         borderRightColor: 'transparent',
     },
     message: {
-        fontSize: FONT_SIZES.s,
+        fontSize: FONT_SIZES?.s || 14,
         fontWeight: '600',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         letterSpacing: 1,
     }
 });

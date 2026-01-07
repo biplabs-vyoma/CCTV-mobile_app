@@ -7,14 +7,9 @@ import { CustomHeader } from '../components/CustomHeader';
 // Screens
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { CCTVMonitorScreen } from '../screens/cctv/CCTVMonitorScreen';
-import NetworkMonitoringDashboard from '../screens/network/NetworkMonitoringDashboard';
-<<<<<<< HEAD
-import ReportsScreen from '../screens/reports/ReportsScreen';
-import { TicketQueueScreen } from '../screens/dashboard/Placeholders';
-=======
-import { PerformanceScreen } from '../screens/dashboard/Placeholders';
+// import NetworkMonitoringDashboard from '../screens/network/NetworkMonitoringDashboard';
+// import { PerformanceScreen } from '../screens/dashboard/Placeholders';
 import { TicketQueueScreen } from '../screens/tickets/TicketQueueScreen';
->>>>>>> d02498a784350a943d02f2b2e84841d6ba264a18
 
 const Tab = createBottomTabNavigator();
 
@@ -24,14 +19,16 @@ export const TabNavigator = () => {
             screenOptions={({ route }) => ({
                 headerShown: true,
                 header: () => <CustomHeader />,
-                tabBarActiveTintColor: COLORS.secondary,
-                tabBarInactiveTintColor: COLORS.textSecondary,
+                tabBarActiveTintColor: (route.name === 'Tickets' && (route.params as any)?.disableStatusFilter)
+                    ? (COLORS?.textSecondary || '#64748b')
+                    : (COLORS?.primary || '#2563eb'),
+                tabBarInactiveTintColor: COLORS?.textSecondary || '#64748b',
                 tabBarStyle: {
                     height: 60,
                     paddingBottom: 8,
                     paddingTop: 8,
-                    backgroundColor: COLORS.surface,
-                    borderTopColor: COLORS.border,
+                    backgroundColor: COLORS?.surface || '#fff',
+                    borderTopColor: COLORS?.border || '#ccc',
                 },
                 tabBarIcon: ({ color, size }) => {
                     let IconComponent;
@@ -48,9 +45,20 @@ export const TabNavigator = () => {
         >
             <Tab.Screen name="Dashboard" component={DashboardScreen} />
             <Tab.Screen name="CCTV" component={CCTVMonitorScreen} options={{ title: 'CCTV' }} />
-            <Tab.Screen name="Tickets" component={TicketQueueScreen} options={{ title: 'Queue' }} />
-            <Tab.Screen name="Network" component={NetworkMonitoringDashboard} options={{ title: 'Network' }} />
-            <Tab.Screen name="Performance" component={ReportsScreen} options={{ title: 'Performance' }} />
+            <Tab.Screen
+                name="Tickets"
+                component={TicketQueueScreen}
+                options={{ title: 'Queue' }}
+                listeners={({ navigation }) => ({
+                    tabPress: (e) => {
+                        // Reset params when clicking the tab directly
+                        e.preventDefault();
+                        navigation.navigate('Tickets', { sid: '0', disableStatusFilter: false });
+                    },
+                })}
+            />
+            {/* <Tab.Screen name="Network" component={NetworkMonitoringDashboard} options={{ title: 'Network' }} />
+            <Tab.Screen name="Performance" component={ReportsScreen} options={{ title: 'Performance' }} /> */}
         </Tab.Navigator>
     );
 };

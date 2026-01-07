@@ -7,9 +7,11 @@ export const SplashScreen = () => {
 
     return (
         <View style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+            <StatusBar barStyle="light-content" backgroundColor={COLORS?.primary || '#2563eb'}
+            />
             <View style={styles.logoContainer}>
-                <ShieldCheck size={64} color={COLORS.textInverse} />
+                <ShieldCheck size={64} color={COLORS?.textInverse || '#fff'}
+                />
                 <Text style={styles.title}>CCTV Monitor</Text>
                 <Text style={styles.subtitle}>Kolkata Police</Text>
             </View>
@@ -20,7 +22,7 @@ export const SplashScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -30,7 +32,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: FONT_SIZES.xxl,
         fontWeight: 'bold',
-        color: COLORS.textInverse,
+        color: COLORS?.textInverse || '#fff',
         marginTop: SPACING.m,
     },
     subtitle: {

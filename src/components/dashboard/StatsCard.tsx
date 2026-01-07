@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
 import { LucideIcon } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
 
@@ -10,6 +10,8 @@ interface StatsCardProps {
     changeType?: 'positive' | 'negative' | 'neutral';
     icon: LucideIcon;
     color: 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'orange';
+    onPress?: () => void;
+    style?: ViewStyle;
 }
 
 const getColor = (color: string) => {
@@ -20,7 +22,7 @@ const getColor = (color: string) => {
         case 'yellow': return '#eab308';
         case 'purple': return '#a855f7';
         case 'orange': return '#f97316';
-        default: return COLORS.primary;
+        default: return COLORS?.primary || '#2563eb';
     }
 };
 
@@ -42,7 +44,9 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     change,
     changeType = 'neutral',
     icon: Icon,
-    color
+    color,
+    onPress,
+    style
 }) => {
     const isLoading = value === undefined || value === null || value === '';
     const displayValue = isLoading || String(value).includes("undefined") ? "..." : value;
@@ -52,7 +56,12 @@ export const StatsCard: React.FC<StatsCardProps> = ({
     const bgColor = getBgColor(color);
 
     return (
-        <View style={styles.card}>
+        <TouchableOpacity
+            style={[styles.card, style]}
+            onPress={onPress}
+            activeOpacity={onPress ? 0.7 : 1}
+            disabled={!onPress}
+        >
             <View style={styles.header}>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.title}>{title}</Text>
@@ -71,16 +80,16 @@ export const StatsCard: React.FC<StatsCardProps> = ({
                     <Icon size={24} color={themeColor} />
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 };
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: COLORS.surface,
-        borderRadius: BORDER_RADIUS.m,
-        padding: SPACING.m,
-        marginBottom: SPACING.m,
+        backgroundColor: COLORS?.surface || '#fff',
+        borderRadius: BORDER_RADIUS?.m || 12,
+        padding: SPACING?.m || 16,
+        marginBottom: SPACING?.m || 16,
         borderWidth: 1,
         borderColor: COLORS.border,
         // Shadow for iOS

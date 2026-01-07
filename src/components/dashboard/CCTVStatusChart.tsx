@@ -55,18 +55,18 @@ export const CCTVStatusChart: React.FC<CCTVStatusChartProps> = ({ stats }) => {
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderRadius: BORDER_RADIUS.m,
         padding: SPACING.m,
         marginBottom: SPACING.m,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         elevation: 2,
     },
     cardTitle: {
         fontSize: FONT_SIZES.m,
         fontWeight: '700',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginBottom: SPACING.m,
     },
     chartContainer: {
@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     },
     track: {
         height: 8,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
         borderRadius: 4,
         overflow: 'hidden',
     },
@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     legendContainer: {
         flexDirection: 'row',
         borderTopWidth: 1,
-        borderTopColor: COLORS.border,
+        borderTopColor: COLORS?.border || '#ccc',
         paddingTop: SPACING.m,
         gap: SPACING.m,
     },

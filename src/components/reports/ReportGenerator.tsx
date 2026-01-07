@@ -415,7 +415,7 @@ export const ReportGenerator: React.FC = () => {
                                 <View style={styles.typeHeader}>
                                     <FileText
                                         size={20}
-                                        color={isSelected ? COLORS.primary : COLORS.textSecondary}
+                                        color={isSelected ? (COLORS?.primary || '#2563eb') : (COLORS?.textSecondary || '#666')}
                                         style={styles.typeIcon}
                                     />
                                     <View style={styles.typeTextContainer}>

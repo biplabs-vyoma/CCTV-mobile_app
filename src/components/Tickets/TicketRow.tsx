@@ -16,7 +16,7 @@ const getStatusColor = (statusId: string) => {
         case '220': return { bg: '#f3e8ff', text: '#7e22ce' }; // Purple
         case '230': return { bg: '#fef9c3', text: '#854d0e' }; // Yellow
         case '240': return { bg: '#dcfce7', text: '#15803d' }; // Green
-        default: return { bg: '#f3f4f6',    text: '#1f2937' }; // Gray
+        default: return { bg: '#f3f4f6', text: '#1f2937' }; // Gray
     }
 };
 
@@ -62,7 +62,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({ ticket, onClick, user_type
                     </View>
 
                     <View style={styles.dateContainer}>
-                        <Calendar size={12} color={COLORS.textSecondary} style={{ marginRight: 4 }} />
+                        <Calendar size={12} color={COLORS?.textSecondary || '#666'} style={{ marginRight: 4 }} />
                         <Text style={styles.dateText}>{ticket.ticket_creaton}</Text>
                     </View>
                 </View>
@@ -80,7 +80,7 @@ export const TicketRow: React.FC<TicketRowProps> = ({ ticket, onClick, user_type
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderRadius: 12,
         padding: 16,
         marginBottom: 12,
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 2,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
     },
     headerRow: {
         flexDirection: 'row',
@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     ticketId: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb' || '#000',
         fontFamily: 'monospace',
     },
     badge: {
@@ -123,17 +123,17 @@ const styles = StyleSheet.create({
     cctvName: {
         fontSize: 16,
         fontWeight: '600',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginBottom: 4,
     },
     address: {
         fontSize: 13,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         marginBottom: 2,
     },
     serial: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         fontFamily: 'monospace',
     },
     footerRow: {
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     },
     dateText: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
     },
     escalationRow: {
         flexDirection: 'row',

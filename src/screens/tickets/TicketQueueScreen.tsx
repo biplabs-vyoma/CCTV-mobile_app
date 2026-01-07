@@ -1,16 +1,28 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, SafeAreaView, RefreshControl } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    SafeAreaView,
+    RefreshControl,
+    Platform,
+    PermissionsAndroid,
+    Alert
+} from 'react-native';
 import { TicketList } from '../../components/Tickets/TicketList';
 import { TicketFilters } from '../../components/Tickets/TicketFilters';
 import { CreateTicketModal } from '../../components/Tickets/CreateTicketModal';
 import { TicketDetailsModal } from '../../components/Tickets/TicketDetailsModal';
+import { CustomAlert } from '../../components/CustomAlert';
 
-import { useAuth } from '../../context/AuthContext';
 import { Plus, Upload, Download, AlertTriangle, Clock, Activity } from 'lucide-react-native';
 import { Ticket } from '../../types/ticket';
 import { callAPIWithEnc } from '../../apis/common/api';
 import { COLORS } from '../../constants/theme';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useAuth } from '../../context/AuthContext';
 
 const getTodayDateDMY = () => {
     const today = new Date();
@@ -23,18 +35,20 @@ const getTodayDateDMY = () => {
 const convertDMYtoYMD = (dateString: string) => {
     if (!dateString) return null;
     const parts = dateString.split('-');
-    if (parts.length !== 3) return dateString; // Fallback if format is unexpected
-    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    if (parts.length !== 3) return dateString.trim(); // Fallback if format is unexpected
+    return `${parts[2].trim()}-${parts[1].trim()}-${parts[0].trim()}`;
 };
 
 export const TicketQueueScreen: React.FC = () => {
-    // @ts-ignore
-    const { user } = useAuth();
+    const auth = useAuth();
+    const user = auth?.user;
+    const isVendorRestricted = user?.user_type_id == 20 || user?.user_type_id == 30 || user?.user_type_id == 40;
     const navigation = useNavigation();
     const route = useRoute();
 
-    // @ts-ignore
-    const statusID = route.params?.sid;
+    const params = route.params as any;
+    const statusID = params?.sid;
+    const disableStatusFilter = params?.disableStatusFilter;
 
     const [activeTab, setActiveTab] = useState<'details' | 'engineer' | 'status' | 'chat'>('details');
     const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -44,6 +58,12 @@ export const TicketQueueScreen: React.FC = () => {
     const [ticketRecentActivity, setTicketRecentActivity] = useState<any>(null); // Initialize as null or []
     const [ticketDescAndTimelineInfo, setTicketDescAndTimelineInfo] = useState<any>(null);
     const [refreshing, setRefreshing] = useState(false);
+    const [alertConfig, setAlertConfig] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info' as 'info' | 'success' | 'error' | 'warning'
+    });
 
     const [filters, setFilters] = useState({
         status_id: '0',
@@ -51,15 +71,45 @@ export const TicketQueueScreen: React.FC = () => {
         vendor_id: '0',
         status_name: '',
         priority_name: '',
-        vendor_id: '',
+        vendor_name: '',
         search: '',
         start_date: '',
         end_date: '',
     });
+    const [hasSearched, setHasSearched] = useState(false);
 
-    const fetchGetTicketDetailsListByUser = useCallback(async () => {
+    const fetchGetTicketDetailsListByUser = useCallback(async (statusOverride?: string) => {
+        // Validation: Required fields
+        if (!filters.status_id || filters.status_id === '0' || !filters.start_date || !filters.end_date) {
+            setAlertConfig({
+                visible: true,
+                title: 'Selection Required',
+                message: 'Please select Status, Start Date, and End Date to fetch tickets.',
+                type: 'warning'
+            });
+            return;
+        }
+
+        // Validation: Date Range
+        const startDateObj = new Date(convertDMYtoYMD(filters.start_date) || '');
+        const endDateObj = new Date(convertDMYtoYMD(filters.end_date) || '');
+
+        if (startDateObj > endDateObj) {
+            setAlertConfig({
+                visible: true,
+                title: 'Invalid Date Range',
+                message: 'Start Date cannot be later than End Date.',
+                type: 'error'
+            });
+            return;
+        }
+
         try {
             if (!refreshing) setIsLoading(true);
+
+            // Convert to API format (YYYY-MM-DD)
+            const apiStartDate = convertDMYtoYMD(filters.start_date);
+            const apiEndDate = convertDMYtoYMD(filters.end_date);
 
             const payload = {
                 user_id: Number(user?.user_id),
@@ -102,23 +152,47 @@ export const TicketQueueScreen: React.FC = () => {
             setTicketRecentActivity([]);
         } finally {
             setIsLoading(false);
+            setHasSearched(true);
             setRefreshing(false);
         }
     }, [user, filters]);
 
     useEffect(() => {
-        if (statusID && statusID !== filters.status_id) {
-            setFilters((prevFilters) => ({
-                ...prevFilters,
-                status_id: statusID,
-            }));
+        if (statusID !== undefined) {
+            if (statusID === '0') {
+                // Perform a FULL reset when clicking the tab directly
+                setFilters({
+                    status_id: '0',
+                    priority_id: '0',
+                    vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
+                    status_name: '',
+                    priority_name: '',
+                    vendor_name: '',
+                    search: '',
+                    start_date: '',
+                    end_date: '',
+                });
+                setTicketRecentActivity(null);
+            } else {
+                // When coming from stats cards, reset other filters but keep the status
+                setFilters({
+                    status_id: statusID || '0',
+                    priority_id: '0',
+                    vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
+                    status_name: '',
+                    priority_name: '',
+                    vendor_name: '',
+                    search: '',
+                    start_date: '',
+                    end_date: '',
+                });
+                setTicketRecentActivity(null);
+                // REMOVED fetchGetTicketDetailsListByUser - User wants manual search click
+            }
         }
-    }, [statusID]);
+    }, [statusID, params?.timestamp]);
 
-    useEffect(() => {
-        // Initial fetch on mount
-        fetchGetTicketDetailsListByUser();
-    }, []); // Empty dependency pattern for initial load only
+    // REMOVED: Initial fetch on mount useEffect
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -197,11 +271,18 @@ export const TicketQueueScreen: React.FC = () => {
                         user_type_id: Number(user?.user_type_id),
                     }
                 );
+
+
+                console.log("getTicketTimelineInfo", response?.data);
                 setTicketDescAndTimelineInfo(response?.data);
-            } catch (e) { console.log(e); }
+            } catch (e) {
+                console.log(e);
+                setTicketDescAndTimelineInfo(null);
+            }
         };
 
         setSelectedTicket(ticket);
+        setTicketDescAndTimelineInfo(null); // Reset to trigger loading state
         getTicketTimelineInfo();
     };
 
@@ -227,7 +308,7 @@ export const TicketQueueScreen: React.FC = () => {
             </View>
 
             {/* Stats Cards */}
-            {showStats && (
+            {/* {showStats && (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsRow} contentContainerStyle={{ paddingHorizontal: 16 }}>
                     <View style={[styles.statCard, { backgroundColor: '#f0f9ff', borderColor: '#e0f2fe' }]}>
                         <View style={styles.statIconContainer}>
@@ -261,7 +342,7 @@ export const TicketQueueScreen: React.FC = () => {
                         <Text style={[styles.statLabel, { color: '#854d0e' }]}>Unassigned</Text>
                     </View>
                 </ScrollView>
-            )}
+            )} */}
 
             {/* Filters */}
             <TicketFilters
@@ -269,6 +350,7 @@ export const TicketQueueScreen: React.FC = () => {
                 onFilterChange={setFilters}
                 onSearch={fetchGetTicketDetailsListByUser}
                 totalTickets={filteredTickets?.length || 0}
+                disableStatusFilter={disableStatusFilter}
             />
 
             {/* Ticket List with Pull to Refresh */}
@@ -278,6 +360,7 @@ export const TicketQueueScreen: React.FC = () => {
                 isLoading={isLoading && !refreshing}
                 refreshing={refreshing}
                 onRefresh={onRefresh}
+                hasSearched={hasSearched}
             />
 
             {showCreateModal && (
@@ -302,6 +385,14 @@ export const TicketQueueScreen: React.FC = () => {
                     ticketComments={ticketDescAndTimelineInfo}
                 />
             )}
+
+            <CustomAlert
+                visible={alertConfig.visible}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig({ ...alertConfig, visible: false })}
+            />
         </SafeAreaView>
     );
 };
@@ -309,7 +400,7 @@ export const TicketQueueScreen: React.FC = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f0f2f5',
     },
     header: {
         padding: 16,
@@ -317,21 +408,21 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS?.border || '#ccc',
     },
     headerTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     actionButtons: {
         flexDirection: 'row',
         gap: 8,
     },
     createButton: {
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
         padding: 8,
         borderRadius: 8,
     },

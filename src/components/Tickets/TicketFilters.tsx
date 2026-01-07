@@ -20,6 +20,7 @@ interface TicketFiltersProps {
     onFilterChange: (filters: any) => void;
     onSearch: () => void;
     totalTickets: number;
+    disableStatusFilter?: boolean;
 }
 
 const SearchableSelect = ({
@@ -52,7 +53,7 @@ const SearchableSelect = ({
         setSearchTerm('');
     };
 
-    if (disabled) return null;
+    // Removed early null return so field remains visible but disabled
 
     return (
         <View style={styles.selectContainer}>
@@ -63,7 +64,7 @@ const SearchableSelect = ({
                 activeOpacity={0.7}
             >
                 <Text style={styles.selectButtonText} numberOfLines={1}>{displayLabel}</Text>
-                <ChevronDown size={16} color={COLORS.textSecondary} />
+                <ChevronDown size={16} color={COLORS?.textSecondary || '#666'} />
             </TouchableOpacity>
 
             <Modal
@@ -77,14 +78,14 @@ const SearchableSelect = ({
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>{placeholder}</Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                                <X size={24} color={COLORS.text} />
+                                <X size={24} color={COLORS?.text || '#000'} />
                             </TouchableOpacity>
                         </View>
 
                         <TextInput
                             style={styles.searchInput}
                             placeholder="Search..."
-                            placeholderTextColor={COLORS.textSecondary}
+                            placeholderTextColor={COLORS?.textSecondary || '#666'}
                             value={searchTerm}
                             onChangeText={setSearchTerm}
                         />
@@ -108,7 +109,7 @@ const SearchableSelect = ({
                                     </Text>
                                 </TouchableOpacity>
                             )}
-                            ListEmptyComponent={<Text style={{ padding: 20, textAlign: 'center', color: COLORS.textSecondary }}>No options found</Text>}
+                            ListEmptyComponent={<Text style={{ padding: 20, textAlign: 'center', color: COLORS?.textSecondary || '#666' }}>No options found</Text>}
                         />
                     </View>
                 </View>
@@ -117,7 +118,7 @@ const SearchableSelect = ({
     );
 };
 
-const CustomDatePicker = ({ value, onChange, placeholder }: any) => {
+const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: any) => {
     const [modalVisible, setModalVisible] = useState(false);
 
     // Parse current value or use today
@@ -130,7 +131,16 @@ const CustomDatePicker = ({ value, onChange, placeholder }: any) => {
 
     const initialDate = parseFormattedDate(value);
     const [viewDate, setViewDate] = useState(initialDate); // Date for calendar navigation
+    const [showMonthPicker, setShowMonthPicker] = useState(false);
+    const [showYearPicker, setShowYearPicker] = useState(false);
     const selectedDate = initialDate;
+
+    // Parse constraints
+    const minDateObj = minDate ? parseFormattedDate(minDate) : null;
+    const maxDateObj = maxDate ? parseFormattedDate(maxDate) : null;
+
+    if (minDateObj) minDateObj.setHours(0, 0, 0, 0);
+    if (maxDateObj) maxDateObj.setHours(0, 0, 0, 0);
 
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -138,11 +148,11 @@ const CustomDatePicker = ({ value, onChange, placeholder }: any) => {
     ];
 
     const getDaysInMonth = (year: number, month: number) => {
-        return new Date(year, month + 1, 0).getDate();
+        return new Date(year, month + 1, 0, 12, 0, 0).getDate();
     };
 
     const getFirstDayOfMonth = (year: number, month: number) => {
-        return new Date(year, month, 1).getDay();
+        return new Date(year, month, 1, 12, 0, 0).getDay();
     };
 
     const generateCalendar = () => {
@@ -160,6 +170,11 @@ const CustomDatePicker = ({ value, onChange, placeholder }: any) => {
         for (let i = 1; i <= daysInMonth; i++) {
             calendarDays.push(i);
         }
+
+        // Fill trailing empty slots to maintain 6 rows (42 cells) for a stable UI height
+        while (calendarDays.length < 42) {
+            calendarDays.push(null);
+        }
         return calendarDays;
     };
 
@@ -168,10 +183,29 @@ const CustomDatePicker = ({ value, onChange, placeholder }: any) => {
         setViewDate(newDate);
     };
 
+    const handleSelectMonth = (monthIndex: number) => {
+        const newDate = new Date(viewDate.getFullYear(), monthIndex, 1);
+        setViewDate(newDate);
+        setShowMonthPicker(false);
+    };
+
+    const handleSelectYear = (year: number) => {
+        const newDate = new Date(year, viewDate.getMonth(), 1);
+        setViewDate(newDate);
+        setShowYearPicker(false);
+    };
+
+    const years = Array.from({ length: 101 }, (_, i) => viewDate.getFullYear() - 50 + i);
+
     const handleSelectDay = (day: number | null) => {
         if (!day) return;
         const year = viewDate.getFullYear();
         const month = viewDate.getMonth();
+        const fullDate = new Date(year, month, day, 12, 0, 0);
+
+        if (minDateObj && fullDate < minDateObj) return;
+        if (maxDateObj && fullDate > maxDateObj) return;
+
         const formattedDate = `${String(day).padStart(2, '0')}-${String(month + 1).padStart(2, '0')}-${year}`;
         onChange(formattedDate);
         setModalVisible(false);
@@ -181,6 +215,30 @@ const CustomDatePicker = ({ value, onChange, placeholder }: any) => {
         return selectedDate.getDate() === day &&
             selectedDate.getMonth() === viewDate.getMonth() &&
             selectedDate.getFullYear() === viewDate.getFullYear();
+    };
+
+    const isDayDisabled = (day: number | null) => {
+        if (!day) return true;
+        const year = viewDate.getFullYear();
+        const month = viewDate.getMonth();
+        const fullDate = new Date(year, month, day, 12, 0, 0);
+        fullDate.setHours(12, 0, 0, 0);
+
+        if (minDateObj && fullDate < minDateObj) return true;
+        if (maxDateObj && fullDate > maxDateObj) return true;
+        return false;
+    };
+
+    const handleToday = () => {
+        const today = new Date();
+        today.setHours(12, 0, 0, 0);
+
+        if (minDateObj && today < minDateObj) return;
+        if (maxDateObj && today > maxDateObj) return;
+
+        const formattedDate = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+        onChange(formattedDate);
+        setModalVisible(false);
     };
 
     const calendarDays = generateCalendar();
@@ -196,7 +254,7 @@ const CustomDatePicker = ({ value, onChange, placeholder }: any) => {
                 }}
                 activeOpacity={0.7}
             >
-                <Text style={[styles.dateInputText, !value && { color: COLORS.textSecondary }]}>
+                <Text style={[styles.dateInputText, !value && { color: COLORS?.textSecondary || '#666' }]}>
                     {value || placeholder}
                 </Text>
             </TouchableOpacity>
@@ -218,50 +276,116 @@ const CustomDatePicker = ({ value, onChange, placeholder }: any) => {
                     >
                         <View style={styles.calendarHeader}>
                             <TouchableOpacity onPress={() => changeMonth(-1)}>
-                                <ChevronLeft size={24} color={COLORS.primary} />
+                                <ChevronLeft size={24} color={COLORS?.primary || '#2563eb'} />
                             </TouchableOpacity>
-                            <Text style={styles.monthYearText}>
-                                {months[viewDate.getMonth()]} {viewDate.getFullYear()}
-                            </Text>
-                            <TouchableOpacity onPress={() => changeMonth(1)}>
-                                <ChevronRight size={24} color={COLORS.primary} />
-                            </TouchableOpacity>
-                        </View>
-
-                        <View style={styles.weekDaysRow}>
-                            {weekDays.map(d => (
-                                <Text key={d} style={styles.weekDayText}>{d}</Text>
-                            ))}
-                        </View>
-
-                        <View style={styles.daysGrid}>
-                            {calendarDays.map((day, idx) => (
-                                <TouchableOpacity
-                                    key={idx}
-                                    style={[
-                                        styles.dayButton,
-                                        (day && isSelected(day)) ? styles.selectedDayButton : null
-                                    ]}
-                                    onPress={() => handleSelectDay(day)}
-                                    disabled={!day}
-                                >
-                                    <Text style={[
-                                        styles.dayText,
-                                        !day ? { opacity: 0 } : null,
-                                        (day && isSelected(day)) ? styles.selectedDayText : null
-                                    ]}>
-                                        {day}
+                            <View style={styles.headerSelectionRow}>
+                                <TouchableOpacity onPress={() => {
+                                    setShowMonthPicker(!showMonthPicker);
+                                    setShowYearPicker(false);
+                                }}>
+                                    <Text style={styles.monthYearText}>
+                                        {months[viewDate.getMonth()]}
                                     </Text>
                                 </TouchableOpacity>
-                            ))}
+                                <TouchableOpacity onPress={() => {
+                                    setShowYearPicker(!showYearPicker);
+                                    setShowMonthPicker(false);
+                                }}>
+                                    <Text style={styles.monthYearText}>
+                                        {viewDate.getFullYear()}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                            <TouchableOpacity onPress={() => changeMonth(1)}>
+                                <ChevronRight size={24} color={COLORS?.primary || '#2563eb'} />
+                            </TouchableOpacity>
                         </View>
 
-                        <TouchableOpacity
-                            style={styles.closeButton}
-                            onPress={() => setModalVisible(false)}
-                        >
-                            <Text style={styles.closeButtonText}>Cancel</Text>
-                        </TouchableOpacity>
+                        {showMonthPicker ? (
+                            <ScrollView contentContainerStyle={styles.selectionGrid}>
+                                {months.map((m, idx) => (
+                                    <TouchableOpacity
+                                        key={m}
+                                        style={[
+                                            styles.selectionItem,
+                                            viewDate.getMonth() === idx && styles.activeSelectionItem
+                                        ]}
+                                        onPress={() => handleSelectMonth(idx)}
+                                    >
+                                        <Text style={[
+                                            styles.selectionText,
+                                            viewDate.getMonth() === idx && styles.activeSelectionText
+                                        ]}>{m}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        ) : showYearPicker ? (
+                            <ScrollView contentContainerStyle={styles.selectionGrid}>
+                                {years.map(y => (
+                                    <TouchableOpacity
+                                        key={y}
+                                        style={[
+                                            styles.selectionItem,
+                                            viewDate.getFullYear() === y && styles.activeSelectionItem
+                                        ]}
+                                        onPress={() => handleSelectYear(y)}
+                                    >
+                                        <Text style={[
+                                            styles.selectionText,
+                                            viewDate.getFullYear() === y && styles.activeSelectionText
+                                        ]}>{y}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        ) : (
+                            <>
+                                <View style={styles.weekDaysRow}>
+                                    {weekDays.map(d => (
+                                        <Text key={d} style={styles.weekDayText}>{d}</Text>
+                                    ))}
+                                </View>
+
+                                <View style={styles.daysGrid}>
+                                    {calendarDays.map((day, idx) => (
+                                        <TouchableOpacity
+                                            key={idx}
+                                            style={[
+                                                styles.dayButton,
+                                                (day && isSelected(day)) ? styles.selectedDayButton : null,
+                                                (day && isDayDisabled(day)) ? styles.disabledDayButton : null
+                                            ]}
+                                            onPress={() => handleSelectDay(day)}
+                                            disabled={!day || isDayDisabled(day)}
+                                        >
+                                            <Text style={[
+                                                styles.dayText,
+                                                !day ? { opacity: 0 } : null,
+                                                (day && isSelected(day)) ? styles.selectedDayText : null,
+                                                (day && isDayDisabled(day)) ? styles.disabledDayText : null
+                                            ]}>
+                                                {day}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </>
+                        )}
+
+                        <View style={styles.calendarFooter}>
+                            <TouchableOpacity
+                                style={styles.todayButton}
+                                onPress={handleToday}
+                            >
+                                <Text style={styles.todayButtonText}>Today</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.closeButton}
+                                onPress={() => setModalVisible(false)}
+                            >
+                                <Text style={styles.closeButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
@@ -274,6 +398,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
     onFilterChange,
     onSearch,
     totalTickets,
+    disableStatusFilter,
 }) => {
     const [vendors, setVendors] = useState<Array<any>>([]);
     const [statuses, setStatuses] = useState<Array<any>>([]);
@@ -297,6 +422,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 const allStatuses = response?.data || [];
                 // Filter to only include Assigned (220) and In Progress (230)
                 const filteredStatuses = allStatuses.filter((s: any) => s.status_id == '220' || s.status_id == '230');
+                console.log('Filtered statuses:', filteredStatuses);
                 setStatuses(filteredStatuses);
             } catch (e) {
                 console.log('Error fetching statuses', e);
@@ -382,16 +508,17 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                     allOptionLabel="Select Status"
                     allOptionValue=""
                     placeholder="Select Status"
+                    disabled={disableStatusFilter}
                 />
             </View>
 
             {/* Row 2: Search Input */}
             <View style={styles.searchContainer}>
-                <Search size={18} color={COLORS.textSecondary} style={styles.searchIcon} />
+                <Search size={18} color={COLORS?.textSecondary || '#666'} style={styles.searchIcon} />
                 <TextInput
                     style={styles.input}
                     placeholder="Search tickets..."
-                    placeholderTextColor={COLORS.textSecondary}
+                    placeholderTextColor={COLORS?.textSecondary || '#666'}
                     value={filters.search}
                     onChangeText={(text) => handleFilterUpdate('search', text)}
                 />
@@ -399,20 +526,22 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
 
             {/* Row 2.5: Date Filters */}
             <View style={styles.dateRow}>
-                <View style={styles.dateInputWrapper}>
-                    <Text style={styles.dateLabel}>Start Date</Text>
+                <View style={styles.dateField}>
+                    <Text style={styles.fieldLabel}>Start Date</Text>
                     <CustomDatePicker
                         value={filters.start_date}
-                        onChange={(text: string) => handleFilterUpdate('start_date', text)}
-                        placeholder="Select Date"
+                        onChange={(val: string) => onFilterChange({ ...filters, start_date: val })}
+                        placeholder="Select start date"
+                        maxDate={filters.end_date}
                     />
                 </View>
-                <View style={styles.dateInputWrapper}>
-                    <Text style={styles.dateLabel}>End Date</Text>
+                <View style={styles.dateField}>
+                    <Text style={styles.fieldLabel}>End Date</Text>
                     <CustomDatePicker
                         value={filters.end_date}
-                        onChange={(text: string) => handleFilterUpdate('end_date', text)}
-                        placeholder="Select Date"
+                        onChange={(val: string) => onFilterChange({ ...filters, end_date: val })}
+                        placeholder="Select end date"
+                        minDate={filters.start_date}
                     />
                 </View>
             </View>
@@ -426,8 +555,8 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                         onChange={(value: string) => handleFilterUpdate('priority', value)}
                         labelKey="priority_name"
                         valueKey="priority_id"
-                        allOptionLabel="All Priorities"
-                        placeholder="Priority"
+                        allOptionLabel="All Priorities" // Corrected label
+                        placeholder="Priority" // Corrected placeholder
                     />
                 </View>
 
@@ -487,9 +616,9 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
 const styles = StyleSheet.create({
     container: {
         padding: 16,
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS?.border || '#ccc',
     },
     fullWidthRow: {
         marginBottom: 12,
@@ -506,12 +635,12 @@ const styles = StyleSheet.create({
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
         borderRadius: 8,
         paddingHorizontal: 12,
         height: 50,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
     },
     searchIcon: {
         marginRight: 8,
@@ -519,13 +648,13 @@ const styles = StyleSheet.create({
     input: {
         flex: 1,
         fontSize: 15,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         height: '100%',
     },
     statsText: {
         marginTop: 12,
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
     },
     // Select styles
     selectContainer: {
@@ -534,9 +663,9 @@ const styles = StyleSheet.create({
     selectButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         borderRadius: 8,
         paddingHorizontal: 12,
         paddingVertical: 8,
@@ -545,11 +674,11 @@ const styles = StyleSheet.create({
     },
     disabledButton: {
         opacity: 0.5,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
     },
     selectButtonText: {
         fontSize: 13,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginRight: 8,
         flex: 1,
     },
@@ -575,7 +704,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 8,
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
         height: 44,
     },
     searchButtonText: {
@@ -588,16 +717,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 8,
-        backgroundColor: COLORS.primary + '15', // Light blue background
+        backgroundColor: (COLORS?.primary || '#2563eb') + '15', // Light blue background
         borderWidth: 1,
-        borderColor: COLORS.primary,
+        borderColor: COLORS?.primary || '#2563eb' || '#2563eb',
         justifyContent: 'center',
         alignItems: 'center',
         height: 44,
     },
     userInfoText: {
         fontSize: 13,
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
         fontWeight: '700',
     },
     // Modal
@@ -607,7 +736,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,
         maxHeight: '80%',
@@ -622,30 +751,30 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     searchInput: {
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
         borderRadius: 8,
         padding: 12,
         marginBottom: 16,
         fontSize: 16,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     optionItem: {
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS?.border || '#ccc',
     },
     selectedOption: {
-        backgroundColor: COLORS.background + '40', // slightly darker
+        backgroundColor: (COLORS?.background || '#f1f5f9') + '40', // slightly darker
     },
     optionText: {
         fontSize: 16,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     selectedOptionText: {
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
         fontWeight: '600',
     },
     datePickerContainer: {
@@ -660,22 +789,31 @@ const styles = StyleSheet.create({
     },
     dateLabel: {
         fontSize: 10,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
+        marginBottom: 4,
+        marginLeft: 4,
+    },
+    dateField: {
+        flex: 1,
+    },
+    fieldLabel: {
+        fontSize: 10,
+        color: COLORS?.textSecondary || '#666',
         marginBottom: 4,
         marginLeft: 4,
     },
     dateInput: {
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
         borderRadius: 8,
         paddingHorizontal: 12,
         height: 40,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         justifyContent: 'center',
     },
     dateInputText: {
         fontSize: 13,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     centeredModalOverlay: {
         flex: 1,
@@ -684,7 +822,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     calendarModalContent: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderRadius: 20,
         padding: 20,
         width: '90%',
@@ -704,54 +842,112 @@ const styles = StyleSheet.create({
     monthYearText: {
         fontSize: 18,
         fontWeight: '700',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     weekDaysRow: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'flex-start',
         marginBottom: 10,
     },
     weekDayText: {
         fontSize: 12,
         fontWeight: '600',
-        color: COLORS.textSecondary,
-        width: 40,
+        color: COLORS?.textSecondary || '#666',
+        width: '14.28%',
         textAlign: 'center',
     },
     daysGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        justifyContent: 'space-around',
+        justifyContent: 'flex-start',
     },
     dayButton: {
-        width: 40,
+        width: '14.28%',
         height: 40,
         justifyContent: 'center',
         alignItems: 'center',
         marginVertical: 2,
-        borderRadius: 20,
     },
     selectedDayButton: {
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
+        borderRadius: 20,
+        // Make sure it looks like a circle even with percentage container
+        maxWidth: 40,
+        alignSelf: 'center',
     },
     dayText: {
         fontSize: 14,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     selectedDayText: {
         color: '#fff',
         fontWeight: '700',
     },
-    closeButton: {
-        marginTop: 20,
+    disabledDayButton: {
+        backgroundColor: 'transparent',
+        opacity: 0.3,
+    },
+    disabledDayText: {
+        color: COLORS?.textSecondary || '#666',
+        textDecorationLine: 'line-through',
+    },
+    headerSelectionRow: {
+        flexDirection: 'row',
+        gap: 8,
+        alignItems: 'center',
+    },
+    selectionGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-around',
+        paddingVertical: 10,
+    },
+    selectionItem: {
+        width: '30%',
         paddingVertical: 12,
         alignItems: 'center',
+        marginVertical: 4,
+        borderRadius: 8,
+        backgroundColor: COLORS?.background || '#f1f5f9',
+    },
+    activeSelectionItem: {
+        backgroundColor: COLORS?.primary || '#2563eb',
+    },
+    selectionText: {
+        fontSize: 14,
+        color: COLORS?.text || '#000',
+    },
+    activeSelectionText: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    calendarFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 20,
+        paddingTop: 10,
         borderTopWidth: 1,
-        borderTopColor: COLORS.border,
+        borderTopColor: COLORS?.border || '#ccc',
+    },
+    todayButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        backgroundColor: (COLORS?.primary || '#2563eb') + '15',
+    },
+    todayButtonText: {
+        color: COLORS?.primary || '#2563eb',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    closeButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
     },
     closeButtonText: {
-        color: COLORS.textSecondary,
-        fontSize: 15,
+        color: COLORS?.textSecondary || '#666',
+        fontSize: 14,
         fontWeight: '600',
     },
 });

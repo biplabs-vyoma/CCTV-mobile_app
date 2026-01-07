@@ -12,6 +12,7 @@ interface TicketListProps {
     isLoading?: boolean;
     refreshing?: boolean;
     onRefresh?: () => void;
+    hasSearched?: boolean;
 }
 
 export const TicketList: React.FC<TicketListProps> = ({
@@ -20,6 +21,7 @@ export const TicketList: React.FC<TicketListProps> = ({
     isLoading,
     refreshing,
     onRefresh,
+    hasSearched = false,
 }) => {
     // @ts-ignore
     const { user } = useAuth();
@@ -42,17 +44,28 @@ export const TicketList: React.FC<TicketListProps> = ({
     if (isLoading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={COLORS.primary} />
+                <ActivityIndicator size="large" color={COLORS?.primary || '#2563eb'} />
                 <Text style={styles.loadingText}>Loading tickets...</Text>
             </View>
         );
     }
 
-    if (!tickets || tickets.length === 0) {
+    if (!tickets && !isLoading) {
         return (
             <View style={styles.emptyContainer}>
-                <Inbox size={48} color={COLORS.textSecondary} />
-                <Text style={styles.emptyText}>No tickets found</Text>
+                <Inbox size={48} color={COLORS?.textSecondary || '#666'} />
+                <Text style={styles.emptyText}>Filter and click search to view tickets</Text>
+            </View>
+        );
+    }
+
+    if (tickets && tickets.length === 0 && !isLoading) {
+        return (
+            <View style={styles.emptyContainer}>
+                <Inbox size={48} color={COLORS?.textSecondary || '#666'} />
+                <Text style={styles.emptyText}>
+                    {hasSearched ? 'No tickets found' : 'Select filters and click search to view tickets'}
+                </Text>
             </View>
         );
     }
@@ -71,7 +84,7 @@ export const TicketList: React.FC<TicketListProps> = ({
                         disabled={currentPage === 1}
                         style={[styles.pageButton, currentPage === 1 && styles.disabledButton]}
                     >
-                        <ChevronLeft size={20} color={currentPage === 1 ? COLORS.textSecondary : COLORS.text} />
+                        <ChevronLeft size={20} color={currentPage === 1 ? (COLORS?.textSecondary || '#666') : (COLORS?.text || '#000')} />
                     </TouchableOpacity>
 
                     <Text style={styles.pageNumber}>
@@ -83,7 +96,7 @@ export const TicketList: React.FC<TicketListProps> = ({
                         disabled={currentPage === totalPages}
                         style={[styles.pageButton, currentPage === totalPages && styles.disabledButton]}
                     >
-                        <ChevronRight size={20} color={currentPage === totalPages ? COLORS.textSecondary : COLORS.text} />
+                        <ChevronRight size={20} color={currentPage === totalPages ? (COLORS?.textSecondary || '#666') : (COLORS?.text || '#000')} />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -109,7 +122,7 @@ export const TicketList: React.FC<TicketListProps> = ({
                         <RefreshControl
                             refreshing={refreshing || false}
                             onRefresh={onRefresh}
-                            colors={[COLORS.primary]}
+                            colors={[COLORS?.primary || '#2563eb']}
                         />
                     ) : undefined
                 }
@@ -134,7 +147,7 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginTop: 10,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
     },
     emptyContainer: {
         flex: 1,
@@ -146,20 +159,20 @@ const styles = StyleSheet.create({
     emptyText: {
         marginTop: 12,
         fontSize: 16,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
     },
     footer: {
         marginTop: 16,
         paddingTop: 16,
         borderTopWidth: 1,
-        borderTopColor: COLORS.border,
+        borderTopColor: COLORS?.border || '#ccc',
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
     },
     footerText: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
     },
     paginationControls: {
         flexDirection: 'row',
@@ -169,17 +182,17 @@ const styles = StyleSheet.create({
     pageButton: {
         padding: 8,
         borderRadius: 8,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
     },
     disabledButton: {
         opacity: 0.5,
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
     },
     pageNumber: {
         fontSize: 14,
         fontWeight: '600',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
 });

@@ -92,10 +92,22 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         type: 'info',
         shouldCloseParent: false
     });
+    const [isLoadingTimeline, setIsLoadingTimeline] = useState(true);
 
     const canManageTicket = [10, 20, 30, 40, 100].includes(Number(user?.user_type_id));
     const isTicketCreator = user?.user_id == ticket.ticket_created_user_id;
     const canFinalClose = isTicketCreator && ticket?.ticket_status == '220';
+
+    console.log("Ticket Data:", ticketComments);
+
+    // Update loading state when ticketComments changes
+    useEffect(() => {
+        if (ticketComments) {
+            setIsLoadingTimeline(false);
+        } else {
+            setIsLoadingTimeline(true);
+        }
+    }, [ticketComments]);
 
     // Mock chat session (simplified from input)
     const mockChatSession: any = {
@@ -242,57 +254,62 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     };
 
     const handleCaptureImage = async () => {
-        // Real camera implementation
         const options: any = {
             mediaType: 'photo',
             includeBase64: true,
-            quality: 0.5,
+            quality: 0.7,
             maxWidth: 1024,
             maxHeight: 1024,
-            saveToPhotos: true,
+            saveToPhotos: false,
         };
 
         try {
-            // Request camera permission for Android
+            // Request camera permission on Android
             if (Platform.OS === 'android') {
-                const granted = await PermissionsAndroid.request(
-                    PermissionsAndroid.PERMISSIONS.CAMERA,
-                    {
-                        title: 'Camera Permission',
-                        message: 'App needs camera permission to capture evidence photos.',
-                        buttonNeutral: 'Ask Me Later',
-                        buttonNegative: 'Cancel',
-                        buttonPositive: 'OK',
+                const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+
+                if (!hasPermission) {
+                    const granted = await PermissionsAndroid.request(
+                        PermissionsAndroid.PERMISSIONS.CAMERA,
+                        {
+                            title: 'Camera Permission',
+                            message: 'App needs camera permission to capture evidence photos.',
+                            buttonPositive: 'OK',
+                        }
+                    );
+
+                    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+                        toast.error('Camera permission is required');
+                        return;
                     }
-                );
-                if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-                    toast.error('Camera permission denied');
-                    return;
                 }
             }
 
-            launchCamera(options, (response) => {
-                if (response.didCancel) {
-                    console.log('User cancelled image picker');
-                } else if (response.errorCode) {
-                    console.log('ImagePicker Error: ', response.errorMessage);
-                    toast.error('Camera Error: ' + response.errorMessage);
-                } else if (response.assets && response.assets[0].base64) {
-                    const base64Data = `data:image/jpeg;base64,${response.assets[0].base64}`;
-                    setCapturedImage(base64Data);
-                    setAlertConfig({
-                        visible: true,
-                        title: 'Success',
-                        message: 'Image captured successfully',
-                        type: 'success'
-                    });
-                } else {
-                    toast.error('Failed to capture image');
-                }
-            });
-        } catch (err) {
-            console.warn(err);
-            toast.error('Error opening camera');
+            // Validate native module
+            if (typeof launchCamera !== 'function') {
+                Alert.alert('Camera Error', 'Camera module not available. Please restart the app.');
+                return;
+            }
+
+            // Launch camera
+            const result = await launchCamera(options);
+
+            if (result.didCancel) {
+                // User cancelled - no action needed
+                return;
+            } else if (result.errorCode) {
+                Alert.alert('Camera Error', result.errorMessage || 'Failed to open camera');
+                toast.error('Camera failure: ' + (result.errorMessage || result.errorCode));
+            } else if (result.assets && result.assets[0].base64) {
+                const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                setCapturedImage(base64Data);
+                toast.success('Photo captured successfully');
+            } else {
+                Alert.alert('Error', 'No image data returned from camera');
+            }
+        } catch (error: any) {
+            Alert.alert('Camera Exception', error?.message || 'Unknown error occurred');
+            toast.error('Error opening camera: ' + (error?.message || 'Unknown'));
         }
     };
 
@@ -554,13 +571,31 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                 {/* Timeline */}
                                 <Text style={styles.sectionTitle}>Timeline</Text>
                                 <View style={styles.card}>
-                                    {ticketComments?.timeline_details?.map((item: any, idx: number) => renderTimelineItem(item, idx))}
+                                    {isLoadingTimeline ? (
+                                        <View style={styles.loaderContainer}>
+                                            <ActivityIndicator size="small" color={COLORS?.primary || '#2563eb'} />
+                                            <Text style={styles.loaderText}>Loading timeline...</Text>
+                                        </View>
+                                    ) : ticketComments?.timeline_details?.length > 0 ? (
+                                        ticketComments.timeline_details.map((item: any, idx: number) => renderTimelineItem(item, idx))
+                                    ) : (
+                                        <Text style={styles.emptyText}>No timeline data available</Text>
+                                    )}
                                 </View>
 
                                 {/* Description */}
                                 <Text style={styles.sectionTitle}>Issue Description</Text>
                                 <View style={[styles.card, { backgroundColor: '#f9fafb' }]}>
-                                    <Text style={styles.descriptionText}>{ticketComments?.ticket_comments?.issue_desc}</Text>
+                                    {isLoadingTimeline ? (
+                                        <View style={styles.loaderContainer}>
+                                            <ActivityIndicator size="small" color={COLORS?.primary || '#2563eb'} />
+                                            <Text style={styles.loaderText}>Loading description...</Text>
+                                        </View>
+                                    ) : ticketComments?.ticket_comments?.issue_desc ? (
+                                        <Text style={styles.descriptionText}>{ticketComments.ticket_comments.issue_desc}</Text>
+                                    ) : (
+                                        <Text style={styles.emptyText}>No description available</Text>
+                                    )}
                                 </View>
 
                                 {/* Physical Verification */}
@@ -957,7 +992,7 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     container: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         height: '92%',
@@ -973,11 +1008,11 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     subtitle: {
         fontSize: 14,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
     },
     selectButton: {
@@ -993,7 +1028,7 @@ const styles = StyleSheet.create({
     },
     selectButtonText: {
         fontSize: 16,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     modalOverlay: {
         flex: 1,
@@ -1016,7 +1051,7 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     optionItem: {
         paddingVertical: 15,
@@ -1028,14 +1063,14 @@ const styles = StyleSheet.create({
     },
     optionText: {
         fontSize: 16,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     selectedOptionText: {
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
         fontWeight: 'bold',
     },
     successButton: {
-        backgroundColor: COLORS.success,
+        backgroundColor: COLORS?.success || '#22c55e',
         borderRadius: 8,
         padding: 8,
     },
@@ -1044,7 +1079,7 @@ const styles = StyleSheet.create({
     },
     navContainer: {
         borderBottomWidth: 1,
-        borderBottomColor: COLORS.border,
+        borderBottomColor: COLORS?.border || '#ccc',
         marginBottom: 16,
         flexDirection: 'row',
     },
@@ -1055,15 +1090,15 @@ const styles = StyleSheet.create({
         borderBottomColor: 'transparent',
     },
     navTabActive: {
-        borderBottomColor: COLORS.primary,
+        borderBottomColor: COLORS?.primary || '#2563eb',
     },
     navText: {
         fontSize: 14,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         fontWeight: '600',
     },
     navTextActive: {
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
     },
     content: {
         flex: 1,
@@ -1074,17 +1109,17 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginTop: 16,
         marginBottom: 8,
     },
     card: {
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
         borderRadius: 12,
         padding: 12,
         marginBottom: 8,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
     },
     infoRow: {
         flexDirection: 'row',
@@ -1093,16 +1128,16 @@ const styles = StyleSheet.create({
     infoTitle: {
         fontSize: 16,
         fontWeight: '600',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     infoText: {
         fontSize: 14,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginTop: 2,
     },
     infoSubText: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
         marginTop: 2,
     },
@@ -1124,7 +1159,7 @@ const styles = StyleSheet.create({
     },
     divider: {
         height: 1,
-        backgroundColor: COLORS.border,
+        backgroundColor: COLORS?.border || '#ccc',
         marginVertical: 12,
     },
     metaRow: {
@@ -1133,12 +1168,12 @@ const styles = StyleSheet.create({
     },
     metaLabel: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         fontWeight: '600',
     },
     metaValue: {
         fontSize: 14,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginTop: 2,
         textTransform: 'capitalize',
     },
@@ -1159,20 +1194,20 @@ const styles = StyleSheet.create({
     },
     timelineStatus: {
         fontSize: 14,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         fontWeight: '600',
     },
     timelineDate: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
     },
     timelineUser: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         fontStyle: 'italic',
     },
     descriptionText: {
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         lineHeight: 20,
     },
     // Engineer Tab
@@ -1185,12 +1220,12 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         marginBottom: 8,
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
     },
     engineerCardSelected: {
-        borderColor: COLORS.primary,
+        borderColor: COLORS?.primary || '#2563eb',
         backgroundColor: '#eff6ff',
     },
     radioOuter: {
@@ -1207,15 +1242,15 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
     },
     engineerName: {
         fontWeight: '600',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     engineerVendor: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
     },
     engineerMetaRow: {
         flexDirection: 'row',
@@ -1224,7 +1259,7 @@ const styles = StyleSheet.create({
     },
     engineerMeta: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
     },
     engineerContactRow: {
         marginTop: 4,
@@ -1232,11 +1267,11 @@ const styles = StyleSheet.create({
     },
     contactText: {
         fontSize: 12,
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         marginLeft: 4,
     },
     primaryButton: {
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
         paddingVertical: 12,
         borderRadius: 8,
         alignItems: 'center',
@@ -1253,19 +1288,19 @@ const styles = StyleSheet.create({
     inputLabel: {
         fontSize: 14,
         fontWeight: '600',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginTop: 12,
         marginBottom: 8,
     },
     textArea: {
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         borderRadius: 8,
         padding: 12,
         height: 100,
         textAlignVertical: 'top',
-        color: COLORS.text,
-        backgroundColor: COLORS.background,
+        color: COLORS?.text || '#000',
+        backgroundColor: COLORS?.background || '#f1f5f9',
     },
     checkbox: {
         width: 20,
@@ -1277,7 +1312,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     checkboxChecked: {
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
     },
     lockedState: {
         alignItems: 'center',
@@ -1287,12 +1322,12 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 20,
         borderRadius: 8,
-        backgroundColor: COLORS.background,
+        backgroundColor: COLORS?.background || '#f1f5f9',
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
     },
     buttonTextSecondary: {
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         fontWeight: '600',
         fontSize: 16,
     },
@@ -1324,7 +1359,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 14,
         fontWeight: '700',
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
         marginBottom: 8,
     },
     locationRow: {
@@ -1336,15 +1371,15 @@ const styles = StyleSheet.create({
     },
     disabledInput: {
         backgroundColor: '#f1f5f9',
-        color: COLORS.textSecondary,
+        color: COLORS?.textSecondary || '#666',
         fontWeight: '600',
     },
     input: {
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         borderRadius: 8,
         padding: 10,
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         fontSize: 14,
         height: 44,
     },
@@ -1365,7 +1400,7 @@ const styles = StyleSheet.create({
     captureButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 8,
@@ -1384,7 +1419,7 @@ const styles = StyleSheet.create({
         borderColor: COLORS.primary,
     },
     viewImageButtonText: {
-        color: COLORS.primary,
+        color: COLORS?.primary || '#2563eb',
         fontSize: 14,
         fontWeight: '600',
     },
@@ -1393,11 +1428,30 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         alignSelf: 'flex-start',
     },
     thumbnailImage: {
         width: 100,
         height: 100,
+    },
+    loaderContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 20,
+        gap: 10,
+    },
+    loaderText: {
+        fontSize: 14,
+        color: COLORS?.textSecondary || '#666',
+        marginLeft: 8,
+    },
+    emptyText: {
+        fontSize: 14,
+        color: COLORS?.textSecondary || '#666',
+        textAlign: 'center',
+        paddingVertical: 16,
+        fontStyle: 'italic',
     },
 });

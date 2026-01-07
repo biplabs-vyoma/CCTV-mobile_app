@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
         padding: 20,
     },
     container: {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS?.surface || '#fff',
         borderRadius: 16,
         padding: 20,
     },
@@ -87,24 +87,24 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
     },
     label: {
         fontSize: 14,
         fontWeight: '600',
-        color: COLORS.text,
+        color: COLORS?.text || '#000',
         marginBottom: 8,
         marginTop: 12,
     },
     input: {
         borderWidth: 1,
-        borderColor: COLORS.border,
+        borderColor: COLORS?.border || '#ccc',
         borderRadius: 8,
         padding: 12,
         height: 100,
         textAlignVertical: 'top',
-        color: COLORS.text,
-        backgroundColor: COLORS.background,
+        color: COLORS?.text || '#000',
+        backgroundColor: COLORS?.background || '#fff',
     },
     ratingContainer: {
         flexDirection: 'row',
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     submitButton: {
-        backgroundColor: COLORS.primary,
+        backgroundColor: COLORS?.primary || '#2563eb',
         padding: 14,
         borderRadius: 8,
         alignItems: 'center',
