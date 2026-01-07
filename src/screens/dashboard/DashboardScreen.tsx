@@ -6,7 +6,7 @@ import { fetchDashboardDetails, fetchRecentTickets } from '../../services/api/da
 import { DashboardStats, TicketApiResponse } from '../../types/dashboard';
 
 // Icons
-import { CheckCircle,  ClipboardList, Activity } from 'lucide-react-native';
+import { CheckCircle, ClipboardList, Activity } from 'lucide-react-native';
 
 // Components
 import { StatsCard } from '../../components/dashboard/StatsCard';
@@ -72,32 +72,32 @@ export const DashboardScreen = () => {
         >
             <View style={styles.grid}>
                 <>
-                        <StatsCard
-                            title="Total Resolved"
-                            value={dashboardData?.total_resloved_ticket || 0}
-                            change="Successfully closed"
-                            changeType="positive"
-                            icon={CheckCircle}
-                            color="green"
-                        />
-                        <StatsCard
-                            title="In-Progress"
-                            value={dashboardData?.total_inprogress_ticket || 0}
-                            change="Currently active"
-                            changeType="neutral"
-                            icon={Activity}
-                            color="orange"
-                        />
-                        <StatsCard
-                            title="Assigned"
-                            value={dashboardData?.total_assigned_ticket || 0}
-                            change="Assigned to you"
-                            changeType="neutral"
-                            icon={ClipboardList}
-                            color="blue"
-                        />
-                    </>
-                
+                    <StatsCard
+                        title="Total Resolved"
+                        value={dashboardData?.total_resloved_ticket || 0}
+                        change="Successfully closed"
+                        changeType="positive"
+                        icon={CheckCircle}
+                        color="green"
+                    />
+                    <StatsCard
+                        title="In-Progress"
+                        value={dashboardData?.total_inprogress_ticket || 0}
+                        change="Currently active"
+                        changeType="neutral"
+                        icon={Activity}
+                        color="orange"
+                    />
+                    <StatsCard
+                        title="Assigned"
+                        value={dashboardData?.total_assigned_ticket || 0}
+                        change="Assigned to you"
+                        changeType="neutral"
+                        icon={ClipboardList}
+                        color="blue"
+                    />
+                </>
+
             </View>
 
             {/* Charts & Lists */}

@@ -81,7 +81,6 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
         } catch (error) {
             const endTime = new Date();
             const duration = endTime.getTime() - startTime.getTime();
-
             setDiagnostics(prev => ({
                 ...prev,
                 [type]: {
@@ -94,7 +93,6 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
             }));
         }
     };
-
     const getStatusIcon = (status: NetworkDiagnosticResult['status']) => {
         switch (status) {
             case 'running':
@@ -107,7 +105,6 @@ export const NetworkDiagnosticsModal: React.FC<NetworkDiagnosticsModalProps> = (
                 return <Clock size={16} color={COLORS.textSecondary} />;
         }
     };
-
     const renderTabButton = (id: 'ping' | 'connectivity' | 'traceroute', label: string, Icon: any) => (
         <TouchableOpacity
             style={[styles.tabButton, activeTab === id && styles.activeTabButton]}
