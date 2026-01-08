@@ -15,6 +15,7 @@ import {
     PermissionsAndroid
 } from 'react-native';
 import { launchCamera } from 'react-native-image-picker';
+import Geolocation from 'react-native-geolocation-service';
 import {
     X,
     Clock,
@@ -236,21 +237,65 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
         if (activeTab === 'status') {
             // Fetch location and statuses when status tab is opened
-            fetchCurrentLocation();
             getStatusOptions();
         }
     }, [activeTab]);
 
-    const fetchCurrentLocation = () => {
-        // Simulating location fetch
-        // In a real app, use: Geolocation.getCurrentPosition(pos => ...)
-        setCurrentLocation({ latitude: 'Fetching...', longitude: 'Fetching...' });
-        setTimeout(() => {
-            setCurrentLocation({
-                latitude: '22.5726',
-                longitude: '88.3639'
-            });
-        }, 1500);
+    const fetchCurrentLocation = async () => {
+        try {
+            setCurrentLocation({ latitude: 'Fetching...', longitude: 'Fetching...' });
+
+            // Request location permission on Android
+            if (Platform.OS === 'android') {
+                const hasPermission = await PermissionsAndroid.check(
+                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+                );
+
+                if (!hasPermission) {
+                    const granted = await PermissionsAndroid.request(
+                        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                        {
+                            title: 'Location Permission',
+                            message: 'App needs location permission to capture current coordinates.',
+                            buttonPositive: 'OK',
+                        }
+                    );
+
+                    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+                        toast.error('Location permission is required');
+                        return;
+                    }
+                }
+            }
+
+            // Get current position
+            Geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setCurrentLocation({
+                        latitude: latitude.toString(),
+                        longitude: longitude.toString()
+                    });
+                    toast.success('Location captured successfully');
+                },
+                (error) => {
+                    console.log('Location Error:', error);
+                    toast.error('Could not fetch location: ' + (error.message || 'Unknown error'));
+                    // Fallback to previous location if available
+                    if (currentLocation.latitude === 'Fetching...') {
+                        setCurrentLocation({ latitude: '', longitude: '' });
+                    }
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                }
+            );
+        } catch (error: any) {
+            console.log('Location Exception:', error);
+            toast.error('Location error: ' + (error?.message || 'Unknown'));
+        }
     };
 
     const handleCaptureImage = async () => {
@@ -304,6 +349,56 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
                 setCapturedImage(base64Data);
                 toast.success('Photo captured successfully');
+
+                // Capture location after photo is taken
+                try {
+                    // Request location permission if needed
+                    if (Platform.OS === 'android') {
+                        const hasLocPermission = await PermissionsAndroid.check(
+                            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+                        );
+
+                        if (!hasLocPermission) {
+                            const granted = await PermissionsAndroid.request(
+                                PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+                                {
+                                    title: 'Location Permission',
+                                    message: 'App needs location permission to capture coordinates with the photo.',
+                                    buttonPositive: 'OK',
+                                }
+                            );
+
+                            if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+                                console.log('Location permission denied after photo capture');
+                                return;
+                            }
+                        }
+                    }
+
+                    // Fetch location
+                    Geolocation.getCurrentPosition(
+                        (position) => {
+                            const { latitude, longitude } = position.coords;
+                            setCurrentLocation({
+                                latitude: latitude.toString(),
+                                longitude: longitude.toString()
+                            });
+                            toast.info('Location captured with photo');
+                        },
+                        (error) => {
+                            console.log('Location fetch error after photo:', error);
+                            // Don't show error toast here as photo was already captured successfully
+                        },
+                        {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 0
+                        }
+                    );
+                } catch (locError) {
+                    console.log('Location capture exception:', locError);
+                    // Photo is already captured, so just log the location error
+                }
             } else {
                 Alert.alert('Error', 'No image data returned from camera');
             }
