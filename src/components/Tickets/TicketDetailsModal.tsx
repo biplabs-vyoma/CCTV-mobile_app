@@ -93,7 +93,9 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         type: 'info',
         shouldCloseParent: false
     });
+
     const [isLoadingTimeline, setIsLoadingTimeline] = useState(true);
+    const [isSubmitting, setIsSubmitting] = useState(false); // New State for Full Screen Loader
 
     const canManageTicket = [10, 20, 30, 40, 100].includes(Number(user?.user_type_id));
     const isTicketCreator = user?.user_id == ticket.ticket_created_user_id;
@@ -236,7 +238,6 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             getFieldEnginnerByVendor();
         }
         if (activeTab === 'status') {
-            // Fetch location and statuses when status tab is opened
             getStatusOptions();
         }
     }, [activeTab]);
@@ -298,6 +299,23 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
     };
 
+
+    // Helper function to get location as a Promise (Strict Check)
+    const getLocationPromise = () => {
+        return new Promise<Geolocation.GeoPosition>((resolve, reject) => {
+            Geolocation.getCurrentPosition(
+                (position) => resolve(position),
+                (error) => reject(error),
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0,
+                    forceRequestLocation: true
+                }
+            );
+        });
+    };
+
     const handleCaptureImage = async () => {
         const options: any = {
             mediaType: 'photo',
@@ -309,111 +327,99 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         };
 
         try {
-            // Request camera permission on Android
+            // 1. Check Permissions on Android
             if (Platform.OS === 'android') {
-                const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+                const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+                const hasCameraPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
 
-                if (!hasPermission) {
-                    const granted = await PermissionsAndroid.request(
-                        PermissionsAndroid.PERMISSIONS.CAMERA,
-                        {
-                            title: 'Camera Permission',
-                            message: 'App needs camera permission to capture evidence photos.',
-                            buttonPositive: 'OK',
-                        }
-                    );
+                if (!hasPermission || !hasCameraPermission) {
+                    const grantedLoc = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+                    const grantedCam = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
 
-                    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-                        toast.error('Camera permission is required');
+                    if (grantedLoc !== PermissionsAndroid.RESULTS.GRANTED || grantedCam !== PermissionsAndroid.RESULTS.GRANTED) {
+                        toast.error('Location and Camera permissions are required');
                         return;
                     }
                 }
             }
 
-            // Validate native module
-            if (typeof launchCamera !== 'function') {
-                Alert.alert('Camera Error', 'Camera module not available. Please restart the app.');
-                return;
+            // 2. PRE-CHECK: Check if Location Service (GPS) is ON before opening camera
+            try {
+                // Toast to inform user we are checking GPS
+                // toast.info('Verifying GPS status...'); 
+                await getLocationPromise();
+            } catch (error: any) {
+                Alert.alert(
+                    'Location Required',
+                    'Your Device Location (GPS) is OFF. You must turn it ON to capture evidence.',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                            text: 'Open Settings',
+                            onPress: () => {
+                                Platform.OS === 'ios'
+                                    ? Linking.openURL('app-settings:')
+                                    : Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
+                            }
+                        }
+                    ]
+                );
+                return; // Stop execution here, don't open camera
             }
 
-            // Launch camera
+            // 3. Launch Camera
+            if (typeof launchCamera !== 'function') return;
             const result = await launchCamera(options);
 
             if (result.didCancel) {
-                // User cancelled - no action needed
                 return;
             } else if (result.errorCode) {
                 Alert.alert('Camera Error', result.errorMessage || 'Failed to open camera');
-                toast.error('Camera failure: ' + (result.errorMessage || result.errorCode));
             } else if (result.assets && result.assets[0].base64) {
-                const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
-                setCapturedImage(base64Data);
-                toast.success('Photo captured successfully');
 
-                // Capture location after photo is taken
+                // 4. POST-CHECK: Verify Location is STILL ON after taking photo
+                // (User might have turned it off via notification shade while camera was open)
                 try {
-                    // Request location permission if needed
-                    if (Platform.OS === 'android') {
-                        const hasLocPermission = await PermissionsAndroid.check(
-                            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-                        );
+                    const position = await getLocationPromise();
 
-                        if (!hasLocPermission) {
-                            const granted = await PermissionsAndroid.request(
-                                PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-                                {
-                                    title: 'Location Permission',
-                                    message: 'App needs location permission to capture coordinates with the photo.',
-                                    buttonPositive: 'OK',
-                                }
-                            );
+                    // If successful, save data
+                    const { latitude, longitude } = position.coords;
 
-                            if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-                                console.log('Location permission denied after photo capture');
-                                return;
-                            }
-                        }
-                    }
+                    const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
 
-                    // Fetch location
-                    Geolocation.getCurrentPosition(
-                        (position) => {
-                            const { latitude, longitude } = position.coords;
-                            setCurrentLocation({
-                                latitude: latitude.toString(),
-                                longitude: longitude.toString()
-                            });
-                            toast.info('Location captured with photo');
-                        },
-                        (error) => {
-                            console.log('Location fetch error after photo:', error);
-                            // Don't show error toast here as photo was already captured successfully
-                        },
-                        {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 0
-                        }
-                    );
+                    console.log("\n\n========== COPY BELOW STRING AND PASTE IN CHROME ==========\n");
+                    console.log(base64Data);
+                    console.log("\n===========================================================\n\n");
+
+                    setCapturedImage(base64Data);
+
+                    setCurrentLocation({
+                        latitude: latitude.toString(),
+                        longitude: longitude.toString()
+                    });
+
+                    // toast.success('Evidence captured successfully with location');
+
                 } catch (locError) {
-                    console.log('Location capture exception:', locError);
-                    // Photo is already captured, so just log the location error
+                    // Location was turned off DURING capture
+                    setCapturedImage(null); // Discard the image
+                    setCurrentLocation({ latitude: '', longitude: '' });
+
+                    Alert.alert(
+                        'Capture Failed',
+                        'Location services were turned OFF during the process. The image has been discarded. Please keep GPS ON and try again.',
+                        [{ text: 'OK' }]
+                    );
                 }
-            } else {
-                Alert.alert('Error', 'No image data returned from camera');
             }
         } catch (error: any) {
-            Alert.alert('Camera Exception', error?.message || 'Unknown error occurred');
-            toast.error('Error opening camera: ' + (error?.message || 'Unknown'));
+            console.error(error);
+            Alert.alert('Error', 'An unexpected error occurred: ' + (error?.message || 'Unknown'));
         }
     };
 
     const handleUpdateEngineerStatus = async () => {
-        // Validation
-        if (!selectedStatusId) {
-            toast.error('Please select a status');
-            return;
-        }
+        // Validation same rahega
         if (!statusComments.trim()) {
             toast.error('Remarks are required');
             return;
@@ -423,16 +429,18 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             return;
         }
 
+        // LOADER START
+        setIsSubmitting(true);
+
         try {
             console.log('--- Preparing Engineer Status Update (New API) ---');
 
-            // Clean coordinates and convert to Number (Double) for the new SP
             const cleanLongitude = Number(String(currentLocation.longitude || "0.0").replace(/[^\d.-]/g, ''));
             const cleanLatitude = Number(String(currentLocation.latitude || "0.0").replace(/[^\d.-]/g, ''));
 
             const payload = {
                 ticket_id: Number(ticket?.ticket_id),
-                status_id: Number(selectedStatusId),
+                status_id: 230,
                 remarks: statusComments,
                 evidence_file_path: capturedImage || "",
                 longitude: cleanLongitude,
@@ -442,15 +450,14 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 vendor_id: Number(user?.vendor_id || 0),
             };
 
-            console.log('Final Update Payload (Numbers for Coordinates):', payload);
-
             const response: any = await callAPIWithEnc(
                 'vendor/enginnerUpdateStatusByTicketId',
                 'POST',
                 payload
             );
 
-            console.log('Update Response:', response);
+            // LOADER STOP (Response aane ke baad)
+            setIsSubmitting(false);
 
             if (response?.status == 0) {
                 setAlertConfig({
@@ -472,6 +479,9 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             }
         } catch (e) {
             console.error(e);
+            // LOADER STOP (Error aane par bhi)
+            setIsSubmitting(false);
+
             setAlertConfig({
                 visible: true,
                 title: 'Error',
@@ -483,7 +493,6 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     };
 
     const handleResolveTicket = async () => {
-        // Use the new engineer status update API if user is a vendor engineer (40) or manager/admin if preferred
         const isEngineer = [30, 40].includes(Number(user?.user_type_id));
 
         if (isEngineer) {
@@ -596,8 +605,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                 <Text style={[styles.navText, activeTab === 'details' && styles.navTextActive]}>Details</Text>
                             </TouchableOpacity>
                             {/* <TouchableOpacity onPress={() => setActiveTab('chat')} style={[styles.navTab, activeTab === 'chat' && styles.navTabActive]}>
-                    <Text style={[styles.navText, activeTab === 'chat' && styles.navTextActive]}>Chat</Text>
-                </TouchableOpacity> */}
+                                <Text style={[styles.navText, activeTab === 'chat' && styles.navTextActive]}>Chat</Text>
+                             </TouchableOpacity> */}
                             {canManageTicket && ticket?.ticket_status <= '210' && user?.user_type_id != 10 && (
                                 <TouchableOpacity onPress={() => setActiveTab('engineer')} style={[styles.navTab, activeTab === 'engineer' && styles.navTabActive]}>
                                     <Text style={[styles.navText, activeTab === 'engineer' && styles.navTextActive]}>Engineer</Text>
@@ -838,7 +847,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
                                         {/* Status Selection Dropdown */}
                                         <View style={{ marginBottom: 16 }}>
-                                            <Text style={styles.inputLabel}>Update Status *</Text>
+                                            {/* <Text style={styles.inputLabel}>Update Status *</Text>
                                             <TouchableOpacity
                                                 style={styles.selectButton}
                                                 onPress={() => setIsStatusModalVisible(true)}
@@ -847,7 +856,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                     {statusOptions.find(s => s.status_id == selectedStatusId)?.status_name || 'Select Status'}
                                                 </Text>
                                                 <ChevronDown size={20} color={COLORS.textSecondary} />
-                                            </TouchableOpacity>
+                                            </TouchableOpacity> */}
 
                                             {/* Status Modal */}
                                             <Modal visible={isStatusModalVisible} transparent animationType="slide">
@@ -998,7 +1007,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 }
                                             >
                                                 <Text style={styles.buttonText}>
-                                                    {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Close Ticket' : 'Resolve Ticket'}
+                                                    {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Close Ticket' : 'Submite'}
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
@@ -1026,6 +1035,22 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                     onFinalClosure={handleFinalClosure}
                 />
             )}
+
+            {/* Full Screen Loading Modal */}
+            <Modal
+                transparent={true}
+                animationType="fade"
+                visible={isSubmitting}
+                onRequestClose={() => { }} // Empty function prevents closing by back button
+            >
+                <View style={styles.loaderOverlay}>
+                    <View style={styles.loaderBox}>
+                        <ActivityIndicator size="large" color={COLORS.primary || '#2563eb'} />
+                        <Text style={styles.loaderTextMain}>Processing...</Text>
+                        <Text style={styles.loaderTextSub}>Please wait while we update the ticket.</Text>
+                    </View>
+                </View>
+            </Modal>
 
             {/* Image Preview Modals */}
             <Modal visible={showImageModal} transparent animationType="fade" onRequestClose={() => setShowImageModal(false)}>
@@ -1548,5 +1573,37 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingVertical: 16,
         fontStyle: 'italic',
+    },
+    // Loader Styles
+    loaderOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)', // Semi-transparent black
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    loaderBox: {
+        backgroundColor: '#fff',
+        padding: 24,
+        borderRadius: 16,
+        alignItems: 'center',
+        width: '80%',
+        maxWidth: 300,
+        elevation: 5, // Android shadow
+        shadowColor: '#000', // iOS shadow
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    loaderTextMain: {
+        marginTop: 16,
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: COLORS.text,
+    },
+    loaderTextSub: {
+        marginTop: 8,
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
     },
 });
