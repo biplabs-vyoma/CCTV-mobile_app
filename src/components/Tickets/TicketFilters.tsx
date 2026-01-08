@@ -421,7 +421,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 const response: any = await callAPIWithEnc('master/getStatusDetails', 'POST', {});
                 const allStatuses = response?.data || [];
                 // Filter to only include Assigned (220) and In Progress (230)
-                const filteredStatuses = allStatuses.filter((s: any) => s.status_id == '220' || s.status_id == '230');
+                const filteredStatuses = allStatuses.filter((s: any) => s.status_id == '220' || s.status_id == '230' || s.status_id == '240');
                 console.log('Filtered statuses:', filteredStatuses);
                 setStatuses(filteredStatuses);
             } catch (e) {
@@ -577,7 +577,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
 
                 <TouchableOpacity
                     style={[styles.searchButton, { flex: 0.8 }]}
-                    onPress={onSearch}
+                    onPress={() => onSearch()}
                 >
                     <Text style={styles.searchButtonText}>Search</Text>
                 </TouchableOpacity>

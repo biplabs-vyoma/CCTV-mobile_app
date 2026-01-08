@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { COLORS } from '../constants/theme';
-import { LayoutDashboard, Video, ClipboardList, Activity, BarChart3 } from 'lucide-react-native';
+import { LayoutDashboard, Video, ClipboardList, Activity, BarChart3, Bell } from 'lucide-react-native';
 import { CustomHeader } from '../components/CustomHeader';
 
 // Screens
@@ -10,6 +10,7 @@ import { CCTVMonitorScreen } from '../screens/cctv/CCTVMonitorScreen';
 // import NetworkMonitoringDashboard from '../screens/network/NetworkMonitoringDashboard';
 // import { PerformanceScreen } from '../screens/dashboard/Placeholders';
 import { TicketQueueScreen } from '../screens/tickets/TicketQueueScreen';
+import { NotificationScreen } from '../screens/notifications/NotificationScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -36,6 +37,7 @@ export const TabNavigator = () => {
                     if (route.name === 'Dashboard') IconComponent = LayoutDashboard;
                     else if (route.name === 'CCTV') IconComponent = Video;
                     else if (route.name === 'Tickets') IconComponent = ClipboardList;
+                    else if (route.name === 'Notifications') IconComponent = Bell;
                     else if (route.name === 'Network') IconComponent = Activity;
                     else if (route.name === 'Performance') IconComponent = BarChart3;
 
@@ -57,19 +59,7 @@ export const TabNavigator = () => {
                     },
                 })}
             />
-
-                <Tab.Screen
-                name="Network"
-                component={TicketQueueScreen}
-                options={{ title: 'Queue' }}
-                listeners={({ navigation }) => ({
-                    tabPress: (e) => {
-                        // Reset params when clicking the tab directly
-                        e.preventDefault();
-                        navigation.navigate('Tickets', { sid: '0', disableStatusFilter: false });
-                    },
-                })}
-            />
+            <Tab.Screen name="Notifications" component={NotificationScreen} options={{ title: 'Alerts' }} />
             {/* <Tab.Screen name="Network" component={NetworkMonitoringDashboard} options={{ title: 'Network' }} />
             <Tab.Screen name="Performance" component={ReportsScreen} options={{ title: 'Performance' }} /> */}
         </Tab.Navigator>

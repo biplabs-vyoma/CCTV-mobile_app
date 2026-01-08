@@ -49,6 +49,8 @@ export const TicketQueueScreen: React.FC = () => {
     const params = route.params as any;
     const statusID = params?.sid;
     const disableStatusFilter = params?.disableStatusFilter;
+    const ticketNumber = params?.ticketNumber;
+    const ticketDate = params?.ticketDate;
 
     const [activeTab, setActiveTab] = useState<'details' | 'engineer' | 'status' | 'chat'>('details');
     const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -78,9 +80,13 @@ export const TicketQueueScreen: React.FC = () => {
     });
     const [hasSearched, setHasSearched] = useState(false);
 
-    const fetchGetTicketDetailsListByUser = useCallback(async (statusOverride?: string) => {
+    const fetchGetTicketDetailsListByUser = useCallback(async (overrideFilters?: any) => {
+        // Check if overrideFilters is a valid filter object and not a React event object
+        const isFilterObject = overrideFilters && typeof overrideFilters === 'object' && 'status_id' in overrideFilters;
+        const currentFilters = isFilterObject ? overrideFilters : filters;
+
         // Validation: Required fields
-        if (!filters.status_id || filters.status_id === '0' || !filters.start_date || !filters.end_date) {
+        if (!currentFilters.status_id || currentFilters.status_id === '0' || !currentFilters.start_date || !currentFilters.end_date) {
             setAlertConfig({
                 visible: true,
                 title: 'Selection Required',
@@ -91,8 +97,8 @@ export const TicketQueueScreen: React.FC = () => {
         }
 
         // Validation: Date Range
-        const startDateObj = new Date(convertDMYtoYMD(filters.start_date) || '');
-        const endDateObj = new Date(convertDMYtoYMD(filters.end_date) || '');
+        const startDateObj = new Date(convertDMYtoYMD(currentFilters.start_date) || '');
+        const endDateObj = new Date(convertDMYtoYMD(currentFilters.end_date) || '');
 
         if (startDateObj > endDateObj) {
             setAlertConfig({
@@ -107,18 +113,14 @@ export const TicketQueueScreen: React.FC = () => {
         try {
             if (!refreshing) setIsLoading(true);
 
-            // Convert to API format (YYYY-MM-DD)
-            const apiStartDate = convertDMYtoYMD(filters.start_date);
-            const apiEndDate = convertDMYtoYMD(filters.end_date);
-
             const payload = {
                 user_id: Number(user?.user_id),
                 user_type_id: Number(user?.user_type_id),
-                status_id: filters.status_id,
-                priority_id: filters.priority_id,
-                vendor_id: filters.vendor_id,
-                start_date: filters.start_date,
-                end_date: filters.end_date,
+                status_id: currentFilters.status_id,
+                priority_id: currentFilters.priority_id,
+                vendor_id: currentFilters.vendor_id,
+                start_date: currentFilters.start_date,
+                end_date: currentFilters.end_date,
             };
 
             console.log('Payload:', JSON.stringify(payload, null, 2));
@@ -174,23 +176,29 @@ export const TicketQueueScreen: React.FC = () => {
                 });
                 setTicketRecentActivity(null);
             } else {
-                // When coming from stats cards, reset other filters but keep the status
-                setFilters({
+                // When coming from stats cards or notifications, reset other filters but keep the status
+                const newFilters = {
                     status_id: statusID || '0',
                     priority_id: '0',
                     vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
                     status_name: '',
                     priority_name: '',
                     vendor_name: '',
-                    search: '',
-                    start_date: '',
-                    end_date: '',
-                });
+                    search: ticketNumber || '', // Set search to ticket number from notification
+                    start_date: ticketDate || '', // Set start date from notification
+                    end_date: ticketDate || '', // Set end date same as start date
+                };
+                setFilters(newFilters);
                 setTicketRecentActivity(null);
-                // REMOVED fetchGetTicketDetailsListByUser - User wants manual search click
+
+                // Auto-search when coming from notification with ticket details
+                if (ticketNumber && ticketDate) {
+                    fetchGetTicketDetailsListByUser(newFilters);
+                }
             }
         }
-    }, [statusID, params?.timestamp]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [statusID, ticketNumber, ticketDate, params?.timestamp]);
 
     // REMOVED: Initial fetch on mount useEffect
 
