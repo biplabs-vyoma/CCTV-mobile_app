@@ -80,6 +80,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     const [statusOptions, setStatusOptions] = useState<any[]>([]);
     const [selectedStatusId, setSelectedStatusId] = useState('');
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+    const [showCamera, setShowCamera] = useState(false);
     const [alertConfig, setAlertConfig] = useState<{
         visible: boolean;
         title: string;
@@ -895,9 +896,9 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             </Modal>
                                         </View>
 
-                                        {/* Location Fields - Auto-fetch current location */}
+                                        {/* Location Fields - Captured from photo */}
                                         <View style={styles.locationContainer}>
-                                            <Text style={styles.sectionLabel}>Current Location (Auto-captured)</Text>
+                                            <Text style={styles.sectionLabel}>GPS Location (Captured from Photo)</Text>
                                             <View style={styles.locationRow}>
                                                 <View style={styles.locationField}>
                                                     <Text style={styles.inputLabel}>Latitude</Text>
@@ -905,7 +906,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                         style={[styles.input, styles.disabledInput]}
                                                         value={currentLocation.latitude}
                                                         editable={false}
-                                                        placeholder="Fetching..."
+                                                        placeholder="Click photo"
+                                                        placeholderTextColor="#9ca3af"
                                                     />
                                                 </View>
                                                 <View style={styles.locationField}>
@@ -914,7 +916,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                         style={[styles.input, styles.disabledInput]}
                                                         value={currentLocation.longitude}
                                                         editable={false}
-                                                        placeholder="Fetching..."
+                                                        placeholder="Click photo"
+                                                        placeholderTextColor="#9ca3af"
                                                     />
                                                 </View>
                                             </View>
@@ -1101,6 +1104,16 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                     }
                 }}
             />
+
+            {/* Camera Modal */}
+            {showCamera && (
+                <Modal visible={true} animationType="slide" statusBarTranslucent>
+                    <CameraCapture
+                        onCapture={handleCameraCapture}
+                        onClose={() => setShowCamera(false)}
+                    />
+                </Modal>
+            )}
         </Modal>
     );
 };
