@@ -57,6 +57,19 @@ export const TabNavigator = () => {
                     },
                 })}
             />
+
+                <Tab.Screen
+                name="Network"
+                component={TicketQueueScreen}
+                options={{ title: 'Queue' }}
+                listeners={({ navigation }) => ({
+                    tabPress: (e) => {
+                        // Reset params when clicking the tab directly
+                        e.preventDefault();
+                        navigation.navigate('Tickets', { sid: '0', disableStatusFilter: false });
+                    },
+                })}
+            />
             {/* <Tab.Screen name="Network" component={NetworkMonitoringDashboard} options={{ title: 'Network' }} />
             <Tab.Screen name="Performance" component={ReportsScreen} options={{ title: 'Performance' }} /> */}
         </Tab.Navigator>
