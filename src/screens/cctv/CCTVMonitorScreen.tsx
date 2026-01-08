@@ -126,8 +126,8 @@ export const CCTVMonitorScreen = () => {
     const renderItem = ({ item }: { item: CCTVDevice }) => (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
-                <View>
-                    <Text style={styles.cardTitle}>{item.cctv_name}</Text>
+                <View style={styles.cardTitleContainer}>
+                    <Text style={styles.cardTitle} numberOfLines={1}>{item.cctv_name}</Text>
                     <Text style={styles.cardSubtitle}>{item.cctv_serial_number}</Text>
                 </View>
                 {getStatusBadge(item.cctv_connection_status)}
@@ -305,6 +305,10 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: SPACING.s,
     },
+    cardTitleContainer: {
+        flex: 1,
+        marginRight: SPACING.s,
+    },
     cardTitle: {
         fontSize: FONT_SIZES.m,
         fontWeight: '600',
@@ -328,9 +332,12 @@ const styles = StyleSheet.create({
         width: 80,
     },
     value: {
+        flex: 1,
         fontSize: FONT_SIZES.s,
         color: COLORS?.textPrimary || '#1f2937',
         fontWeight: '500',
+        textAlign: 'right',
+        marginLeft: SPACING.s,
     },
     cardFooter: {
         flexDirection: 'row',

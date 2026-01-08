@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -12,7 +12,7 @@ import { Bell, Info, Clock, CheckCircle, Check, CheckCheck } from 'lucide-react-
 import { COLORS } from '../../constants/theme';
 import { callAPIWithEnc } from '../../apis/common/api';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 
 // API response structure
 interface ApiNotification {
@@ -45,30 +45,15 @@ export const NotificationScreen = () => {
     // @ts-ignore
     const { user } = useAuth();
     const navigation = useNavigation();
+    const isFocused = useIsFocused();
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-    useEffect(() => {
-        fetchAlerts();
-    }, []);
-
-    const notificationSeen = async (alertId: string) => {
+    const fetchAlerts = useCallback(async (showLoading = true) => {
         try {
-            await callAPIWithEnc('vendor/updatenotificationSeen', 'POST', {
-                notification_id: parseInt(alertId),
-                user_id: user?.user_id,
-                user_type_id: user?.user_type_id,
-            });
-        } catch (error) {
-            console.error('Failed to mark notification as seen:', error);
-        }
-    };
-
-    const fetchAlerts = async () => {
-        try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
 
             const response = await callAPIWithEnc('vendor/getNotificationDetails', 'POST', {
                 user_id: user?.user_id,
@@ -101,8 +86,6 @@ export const NotificationScreen = () => {
                 })
                 .map((item) => {
                     const dateStr = item.status_change_date.replace(' ', 'T');
-
-                    console.log('item', item);
 
                     let title = 'System Notification';
                     let message = 'New status update available';
@@ -196,19 +179,49 @@ export const NotificationScreen = () => {
             setLoading(false);
             setRefreshing(false);
         }
+    }, [user]);
+
+    useEffect(() => {
+        if (isFocused) {
+            fetchAlerts(true);
+        }
+    }, [isFocused, fetchAlerts]);
+
+    const notificationSeen = async (alertId: string) => {
+        try {
+            await callAPIWithEnc('vendor/updatenotificationSeen', 'POST', {
+                notification_id: parseInt(alertId),
+                user_id: user?.user_id,
+                user_type_id: user?.user_type_id,
+            });
+            // After marking as seen, optionally update local state to avoid refetch
+            setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, isRead: true } : a));
+        } catch (error) {
+            console.error('Failed to mark notification as seen:', error);
+        }
     };
 
     const onRefresh = () => {
         setRefreshing(true);
-        fetchAlerts();
+        fetchAlerts(false);
     };
 
     const unreadAlerts = alerts.filter((alert) => !alert.isRead);
 
     useEffect(() => {
-        if (unreadAlerts.length > 0) {
-            notificationSeen(unreadAlerts[0].id);
-        }
+        if (!unreadAlerts || unreadAlerts.length === 0) return;
+
+        const markAllAsSeen = async () => {
+            try {
+                await Promise.all(
+                    unreadAlerts.map(alert => notificationSeen(alert.id))
+                );
+            } catch (error) {
+                console.error("Failed to mark notifications as seen", error);
+            }
+        };
+
+        markAllAsSeen();
     }, [unreadAlerts]);
 
     const filteredAlerts = alerts.filter((alert) => {
@@ -250,7 +263,12 @@ export const NotificationScreen = () => {
         return date.toLocaleDateString();
     };
 
-    const handleAlertPress = (alert: Alert) => {
+    const handleAlertPress = async (alert: Alert) => {
+        // Mark as seen if unread
+        if (!alert.isRead) {
+            await notificationSeen(alert.id);
+        }
+
         // Navigate to tickets screen with status filter
         // @ts-ignore
         navigation.navigate('Tickets', {
@@ -322,7 +340,7 @@ export const NotificationScreen = () => {
                     </View>
                 ) : (
                     <View style={styles.alertsList}>
-                        {filteredAlerts.map((alert,index) => {
+                        {filteredAlerts.map((alert, index) => {
                             const Icon = getTypeIcon(alert.type);
                             const severityColor = getSeverityColor(alert.severity);
 
