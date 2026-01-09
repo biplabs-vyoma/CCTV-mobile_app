@@ -35,16 +35,19 @@ export const CCTVMonitorScreen = () => {
     const [filters, setFilters] = useState({
         status: '0',
         zone: '0',
-        vendor: '0',
+        region: '0',
+        vendor: user?.vendor_id ? user.vendor_id.toString() : '0',
         status_name: '',
         zone_name: '',
-        vendor_name: '',
+        region_name: '',
+        vendor_name: user?.vendor_name || '',
         search: '',
     });
 
     // Permissions
     const canAddCamera = user?.user_type_id?.toString() === '20'; // Vendor Admin
     const canRunDiagnostics = [100, 20, 40].includes(Number(user?.user_type_id));
+    const isVendorLocked = !!user?.vendor_id;
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -55,10 +58,13 @@ export const CCTVMonitorScreen = () => {
             const response = await getCCtvMonitoringList(
                 filters.status,
                 filters.zone,
+                filters.region,
                 effectiveVendorId ? effectiveVendorId.toString() : null,
                 user?.user_id,
                 user?.user_type_id
             );
+
+            console.log('CCTV List Response:', response);
             setCCTVsData(response?.data || []);
         } catch (error) {
             console.error(error);
@@ -83,7 +89,8 @@ export const CCTVMonitorScreen = () => {
             const searchLower = filters.search.toLowerCase();
             result = result.filter(c =>
                 c.cctv_name?.toLowerCase().includes(searchLower) ||
-                c.cctv_location_address?.toLowerCase().includes(searchLower)
+                c.cctv_location_address?.toLowerCase().includes(searchLower) ||
+                c.cctv_serial_number?.toLowerCase().includes(searchLower)
             );
         }
 
@@ -179,6 +186,7 @@ export const CCTVMonitorScreen = () => {
                 onFilterChange={setFilters}
                 totalCameras={filteredData?.length || 0}
                 user={user}
+                lockVendor={isVendorLocked}
             />
 
             {isLoading && !refreshing ? (

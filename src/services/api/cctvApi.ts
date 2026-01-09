@@ -4,13 +4,21 @@ import { CCTVDevice } from '../../types/cctv';
 export const getCCtvMonitoringList = async (
     statusId: string,
     zoneId: string,
+    regionId: string,
     vendorId: string | null,
     userId: number | undefined,
     userTypeId: number | undefined
 ) => {
+
+
+    console.log('getCCtvMonitoringList', statusId, zoneId, vendorId, userId, userTypeId);
+
+
+
     return await callAPIWithEnc('user/getCCtvMonitoringList', 'POST', {
         cctv_status_id: statusId,
         zone_id: zoneId,
+        region_id: regionId,
         vendor_id: vendorId,
         user_id: userId,
         user_type_id: userTypeId,
@@ -25,8 +33,10 @@ export const getVendors = async () => {
     return await callAPIWithEnc('master/getVendor', 'POST', {});
 };
 
-export const getZones = async () => {
-    return await callAPIWithEnc('master/getZone', 'POST', {});
+export const getZones = async (regionId?: string) => {
+    return await callAPIWithEnc('master/getZone', 'POST', {
+        region_id: regionId || '0'
+    });
 };
 
 export const getRegions = async () => {
