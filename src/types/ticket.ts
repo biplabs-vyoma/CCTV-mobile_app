@@ -15,6 +15,9 @@ export interface Ticket {
     ticket_image1?: string;
     ticket_created_user_id?: string | number;
     vendor_name?: string;
+    enginner_evidence_path?: string;
+    latitude?: string;
+    longitude?: string;
 }
 
 export interface Engineer {

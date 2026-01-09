@@ -29,7 +29,8 @@ import {
     Camera,
     Star,
     Check,
-    ChevronDown
+    ChevronDown,
+    MapPin
 } from 'lucide-react-native';
 import { Ticket, Engineer, ChatMessage, ChatSession } from '../../types/ticket';
 import { ChatInterface } from '../Chat/ChatInterface';
@@ -87,6 +88,9 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         message: string;
         type: 'success' | 'error' | 'warning' | 'info';
         shouldCloseParent?: boolean;
+        onConfirm?: () => void;
+        confirmText?: string;
+        cancelText?: string;
     }>({
         visible: false,
         title: '',
@@ -97,6 +101,9 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
     const [isLoadingTimeline, setIsLoadingTimeline] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false); // New State for Full Screen Loader
+    const [isCapturingImage, setIsCapturingImage] = useState(false); // New State for Image Capture Loader
+    const [isFetchingEvidence, setIsFetchingEvidence] = useState(false);
+    const [isFetchingEngEvidence, setIsFetchingEngEvidence] = useState(false);
 
     const canManageTicket = [10, 20, 30, 40, 100].includes(Number(user?.user_type_id));
     const isTicketCreator = user?.user_id == ticket.ticket_created_user_id;
@@ -113,12 +120,12 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
     }, [ticketComments]);
 
-    // Mock chat session (simplified from input)
-    const mockChatSession: any = {
-        id: `chat_${ticket.ticket_id}`,
-        // ...other properties mocked
-    };
-    const mockChatMessages: any[] = [];
+    // // Mock chat session (simplified from input)
+    // const mockChatSession: any = {
+    //     id: `chat_${ticket.ticket_id}`,
+    //     // ...other properties mocked
+    // };
+    // const mockChatMessages: any[] = [];
 
     const getFieldEnginnerByVendor = async () => {
         try {
@@ -180,11 +187,18 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         console.log('ticket_image1:', ticket?.ticket_image1);
 
         if (!ticket?.ticket_image1) {
-            Alert.alert('Info', 'No evidence image available.');
+            setAlertConfig({
+                visible: true,
+                title: 'Info',
+                message: 'No evidence image available.',
+                type: 'info',
+                shouldCloseParent: false
+            });
             return;
         }
 
         try {
+            setIsFetchingEvidence(true);
             console.log('Calling API with filename:', ticket?.ticket_image1);
 
             const response: any = await callAPIWithoutEnc(
@@ -210,13 +224,85 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 setShowImageModal(true);
             } else {
                 console.error('No base64 data in response');
-                Alert.alert('Error', response?.message || 'Failed to load evidence image.');
+                setAlertConfig({
+                    visible: true,
+                    title: 'Error',
+                    message: response?.message || 'Failed to load evidence image.',
+                    type: 'error',
+                    shouldCloseParent: false
+                });
             }
         } catch (e: any) {
             console.error('Exception loading image:', e);
             console.error('Error message:', e?.message);
             console.error('Error stack:', e?.stack);
-            Alert.alert('Error', 'Error loading image: ' + (e?.message || 'Unknown error'));
+            setAlertConfig({
+                visible: true,
+                title: 'Error',
+                message: 'Error loading image: ' + (e?.message || 'Unknown error'),
+                type: 'error',
+                shouldCloseParent: false
+            });
+        } finally {
+            setIsFetchingEvidence(false);
+        }
+    };
+
+    const getEngineerEvidenceImage = async () => {
+        if (!ticket?.enginner_evidence_path) {
+            setAlertConfig({
+                visible: true,
+                title: 'Info',
+                message: 'No engineer evidence image available.',
+                type: 'info',
+                shouldCloseParent: false
+            });
+            return;
+        }
+
+        try {
+            setIsFetchingEngEvidence(true);
+            console.log('Calling API with filename:', ticket?.enginner_evidence_path);
+
+            const response: any = await callAPIWithoutEnc(
+                'user/getImgAsBase64ByFileName',
+                'POST',
+                {
+                    filename: ticket?.enginner_evidence_path,
+                }
+            );
+
+            const base64Image = response?.data;
+            if (base64Image) {
+                setEvidenceImage(base64Image);
+                setShowImageModal(true);
+            } else {
+                setAlertConfig({
+                    visible: true,
+                    title: 'Error',
+                    message: response?.message || 'Failed to load evidence image.',
+                    type: 'error',
+                    shouldCloseParent: false
+                });
+            }
+        } catch (e: any) {
+            console.error('Exception loading image:', e);
+        } finally {
+            setIsFetchingEngEvidence(false);
+        }
+    };
+
+    const openMap = (lat: string, lng: string) => {
+        const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
+        const latLng = `${lat},${lng}`;
+        const label = 'Ticket Location';
+        const url = Platform.select({
+            ios: `${scheme}${label}@${latLng}`,
+            android: `${scheme}${latLng}(${label})`
+        });
+
+        if (url) {
+            Linking.openURL(url);
         }
     };
 
@@ -328,6 +414,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         };
 
         try {
+            setIsCapturingImage(true);
             // 1. Check Permissions on Android
             if (Platform.OS === 'android') {
                 const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
@@ -350,36 +437,39 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 // toast.info('Verifying GPS status...'); 
                 await getLocationPromise();
             } catch (error: any) {
-                Alert.alert(
-                    'Location Required',
-                    'Your Device Location (GPS) is OFF. You must turn it ON to capture evidence.',
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                            text: 'Open Settings',
-                            onPress: () => {
-                                Platform.OS === 'ios'
-                                    ? Linking.openURL('app-settings:')
-                                    : Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
-                            }
-                        }
-                    ]
-                );
-                return; // Stop execution here, don't open camera
+                setAlertConfig({
+                    visible: true,
+                    title: 'Location Required',
+                    message: 'Your Device Location (GPS) is OFF. You must turn it ON to capture evidence.',
+                    type: 'warning',
+                    confirmText: 'Open Settings',
+                    cancelText: 'Cancel',
+                    onConfirm: () => {
+                        setAlertConfig({ ...alertConfig, visible: false, onConfirm: undefined });
+                        Platform.OS === 'ios'
+                            ? Linking.openURL('app-settings:')
+                            : Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
+                    }
+                });
+                return;
             }
 
-            // 3. Launch Camera
             if (typeof launchCamera !== 'function') return;
             const result = await launchCamera(options);
 
             if (result.didCancel) {
+                setIsCapturingImage(false);
                 return;
             } else if (result.errorCode) {
-                Alert.alert('Camera Error', result.errorMessage || 'Failed to open camera');
+                setIsCapturingImage(false);
+                setAlertConfig({
+                    visible: true,
+                    title: 'Camera Error',
+                    message: result.errorMessage || 'Failed to open camera',
+                    type: 'error',
+                    shouldCloseParent: false
+                });
             } else if (result.assets && result.assets[0].base64) {
-
-                // 4. POST-CHECK: Verify Location is STILL ON after taking photo
-                // (User might have turned it off via notification shade while camera was open)
                 try {
                     const position = await getLocationPromise();
 
@@ -406,16 +496,26 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                     setCapturedImage(null); // Discard the image
                     setCurrentLocation({ latitude: '', longitude: '' });
 
-                    Alert.alert(
-                        'Capture Failed',
-                        'Location services were turned OFF during the process. The image has been discarded. Please keep GPS ON and try again.',
-                        [{ text: 'OK' }]
-                    );
+                    setAlertConfig({
+                        visible: true,
+                        title: 'Capture Failed',
+                        message: 'Location services were turned OFF during the process. The image has been discarded. Please keep GPS ON and try again.',
+                        type: 'error',
+                        shouldCloseParent: false
+                    });
                 }
             }
         } catch (error: any) {
             console.error(error);
-            Alert.alert('Error', 'An unexpected error occurred: ' + (error?.message || 'Unknown'));
+            setAlertConfig({
+                visible: true,
+                title: 'Error',
+                message: 'An unexpected error occurred: ' + (error?.message || 'Unknown'),
+                type: 'error',
+                shouldCloseParent: false
+            });
+        } finally {
+            setIsCapturingImage(false);
         }
     };
 
@@ -639,11 +739,18 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             {/* Evidence Image Button */}
                                             {ticket?.ticket_image1 && (
                                                 <TouchableOpacity
-                                                    style={styles.evidenceButton}
+                                                    style={[styles.evidenceButton, isFetchingEvidence && styles.buttonDisabled]}
                                                     onPress={getImgAsBase64ByFileName}
+                                                    disabled={isFetchingEvidence}
                                                 >
-                                                    <Camera size={14} color="#fff" />
-                                                    <Text style={styles.evidenceButtonText}>View Evidence Image</Text>
+                                                    {isFetchingEvidence ? (
+                                                        <ActivityIndicator size="small" color="#fff" />
+                                                    ) : (
+                                                        <Camera size={14} color="#fff" />
+                                                    )}
+                                                    <Text style={styles.evidenceButtonText}>
+                                                        {isFetchingEvidence ? 'Please wait...' : 'View Evidence Image'}
+                                                    </Text>
                                                 </TouchableOpacity>
                                             )}
                                         </View>
@@ -718,6 +825,43 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                     <Text style={{ color: '#854d0e', fontWeight: 'bold' }}>⚠ Physical verification pending</Text>
                                                     <Text style={{ color: '#a16207', marginTop: 4 }}>Ticket creator must physically verify the resolution before final closure.</Text>
                                                 </>
+                                            )}
+                                        </View>
+                                    </View>
+                                )}
+
+                                {/* Engineer Evidence */}
+                                {(ticket?.enginner_evidence_path || (ticket?.latitude && ticket?.longitude)) && (
+                                    <View>
+                                        <Text style={styles.sectionTitle}>Engineer Evidence</Text>
+                                        <View style={styles.card}>
+                                            {ticket?.enginner_evidence_path && (
+                                                <TouchableOpacity
+                                                    style={[styles.evidenceButton, isFetchingEngEvidence && styles.buttonDisabled]}
+                                                    onPress={getEngineerEvidenceImage}
+                                                    disabled={isFetchingEngEvidence}
+                                                >
+                                                    {isFetchingEngEvidence ? (
+                                                        <ActivityIndicator size="small" color="#fff" />
+                                                    ) : (
+                                                        <Camera size={14} color="#fff" />
+                                                    )}
+                                                    <Text style={styles.evidenceButtonText}>
+                                                        {isFetchingEngEvidence ? 'Please wait...' : 'View Engineer Evidence'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            )}
+
+                                            {ticket?.latitude && ticket?.longitude && (
+                                                <View style={{ marginTop: 12 }}>
+                                                    <Text style={[styles.metaLabel, { marginBottom: 4 }]}>Captured Location:</Text>
+                                                    <TouchableOpacity
+                                                        style={{ width: 40, height: 40, justifyContent: 'center' }}
+                                                        onPress={() => openMap(ticket.latitude!, ticket.longitude!)}
+                                                    >
+                                                        <MapPin size={24} color={COLORS.primary} />
+                                                    </TouchableOpacity>
+                                                </View>
                                             )}
                                         </View>
                                     </View>
@@ -807,7 +951,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                             </ScrollView>
                         )}
                         {activeTab === 'status' && (
-                            <ScrollView style={styles.tabContent}>
+                            <ScrollView style={styles.tabContent}
+                                    showsVerticalScrollIndicator={false}>
                                 <Text style={styles.sectionTitle}>Status Management</Text>
                                 {/* Logic simplified from original code for brevity but keeping structure */}
                                 {(user?.user_type_id == '10' && ticket?.ticket_status == '240' && ticket?.ticket_created_user_id == user?.user_id) ||
@@ -848,16 +993,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
                                         {/* Status Selection Dropdown */}
                                         <View style={{ marginBottom: 16 }}>
-                                            {/* <Text style={styles.inputLabel}>Update Status *</Text>
-                                            <TouchableOpacity
-                                                style={styles.selectButton}
-                                                onPress={() => setIsStatusModalVisible(true)}
-                                            >
-                                                <Text style={styles.selectButtonText}>
-                                                    {statusOptions.find(s => s.status_id == selectedStatusId)?.status_name || 'Select Status'}
-                                                </Text>
-                                                <ChevronDown size={20} color={COLORS.textSecondary} />
-                                            </TouchableOpacity> */}
+
 
                                             {/* Status Modal */}
                                             <Modal visible={isStatusModalVisible} transparent animationType="slide">
@@ -902,23 +1038,41 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             <View style={styles.locationRow}>
                                                 <View style={styles.locationField}>
                                                     <Text style={styles.inputLabel}>Latitude</Text>
-                                                    <TextInput
-                                                        style={[styles.input, styles.disabledInput]}
-                                                        value={currentLocation.latitude}
-                                                        editable={false}
-                                                        placeholder="Click photo"
-                                                        placeholderTextColor="#9ca3af"
-                                                    />
+                                                    <View style={{ position: 'relative', justifyContent: 'center' }}>
+                                                        <TextInput
+                                                            style={[styles.input, styles.disabledInput]}
+                                                            value={isCapturingImage ? 'Fetching...' : currentLocation.latitude}
+                                                            editable={false}
+                                                            placeholder="latitude"
+                                                            placeholderTextColor="#9ca3af"
+                                                        />
+                                                        {isCapturingImage && (
+                                                            <ActivityIndicator
+                                                                size="small"
+                                                                color={COLORS.primary}
+                                                                style={{ position: 'absolute', right: 10 }}
+                                                            />
+                                                        )}
+                                                    </View>
                                                 </View>
                                                 <View style={styles.locationField}>
                                                     <Text style={styles.inputLabel}>Longitude</Text>
-                                                    <TextInput
-                                                        style={[styles.input, styles.disabledInput]}
-                                                        value={currentLocation.longitude}
-                                                        editable={false}
-                                                        placeholder="Click photo"
-                                                        placeholderTextColor="#9ca3af"
-                                                    />
+                                                    <View style={{ position: 'relative', justifyContent: 'center' }}>
+                                                        <TextInput
+                                                            style={[styles.input, styles.disabledInput]}
+                                                            value={isCapturingImage ? 'Fetching...' : currentLocation.longitude}
+                                                            editable={false}
+                                                            placeholder="longitude"
+                                                            placeholderTextColor="#9ca3af"
+                                                        />
+                                                        {isCapturingImage && (
+                                                            <ActivityIndicator
+                                                                size="small"
+                                                                color={COLORS.primary}
+                                                                style={{ position: 'absolute', right: 10 }}
+                                                            />
+                                                        )}
+                                                    </View>
                                                 </View>
                                             </View>
                                         </View>
@@ -928,16 +1082,23 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             <Text style={styles.sectionLabel}>Capture Image</Text>
                                             <View style={styles.imageActions}>
                                                 <TouchableOpacity
-                                                    style={styles.captureButton}
+                                                    style={[styles.captureButton, isCapturingImage && styles.buttonDisabled]}
                                                     onPress={handleCaptureImage}
+                                                    disabled={isCapturingImage}
                                                 >
-                                                    <Camera size={20} color="#fff" />
-                                                    <Text style={styles.captureButtonText}>
-                                                        {capturedImage ? 'Retake Photo' : 'Take Photo'}
-                                                    </Text>
+                                                    {isCapturingImage ? (
+                                                        <ActivityIndicator size="small" color="#fff" />
+                                                    ) : (
+                                                        <>
+                                                            <Camera size={20} color="#fff" />
+                                                            <Text style={styles.captureButtonText}>
+                                                                {capturedImage ? 'Retake Photo' : 'Take Photo'}
+                                                            </Text>
+                                                        </>
+                                                    )}
                                                 </TouchableOpacity>
 
-                                                {capturedImage && (
+                                                {capturedImage && !isCapturingImage && (
                                                     <TouchableOpacity
                                                         style={styles.viewImageButton}
                                                         onPress={() => setShowCapturedImageModal(true)}
@@ -1010,7 +1171,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 }
                                             >
                                                 <Text style={styles.buttonText}>
-                                                    {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Close Ticket' : 'Submite'}
+                                                    {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Close Ticket' : 'Submit'}
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
@@ -1096,8 +1257,11 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 title={alertConfig.title}
                 message={alertConfig.message}
                 type={alertConfig.type}
+                confirmText={alertConfig.confirmText}
+                cancelText={alertConfig.cancelText}
+                onConfirm={alertConfig.onConfirm}
                 onClose={() => {
-                    setAlertConfig({ ...alertConfig, visible: false });
+                    setAlertConfig({ ...alertConfig, visible: false, onConfirm: undefined });
                     if (alertConfig.shouldCloseParent) {
                         onUpdate();
                         onClose();
@@ -1533,11 +1697,13 @@ const styles = StyleSheet.create({
     captureButton: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         backgroundColor: COLORS?.primary || '#2563eb',
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 8,
         gap: 8,
+        minWidth: 140,
     },
     captureButtonText: {
         color: '#fff',

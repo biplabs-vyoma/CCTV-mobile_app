@@ -19,6 +19,7 @@ interface TicketFiltersProps {
     };
     onFilterChange: (filters: any) => void;
     onSearch: () => void;
+    onClear?: () => void;
     totalTickets: number;
     disableStatusFilter?: boolean;
 }
@@ -139,8 +140,8 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
     const minDateObj = minDate ? parseFormattedDate(minDate) : null;
     const maxDateObj = maxDate ? parseFormattedDate(maxDate) : null;
 
-    if (minDateObj) minDateObj.setHours(0, 0, 0, 0);
-    if (maxDateObj) maxDateObj.setHours(0, 0, 0, 0);
+    if (minDateObj) minDateObj.setHours(12, 0, 0, 0);
+    if (maxDateObj) maxDateObj.setHours(12, 0, 0, 0);
 
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
@@ -203,8 +204,8 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
         const month = viewDate.getMonth();
         const fullDate = new Date(year, month, day, 12, 0, 0);
 
-        if (minDateObj && fullDate < minDateObj) return;
-        if (maxDateObj && fullDate > maxDateObj) return;
+        if (minDateObj && fullDate.getTime() < minDateObj.getTime()) return;
+        if (maxDateObj && fullDate.getTime() > maxDateObj.getTime()) return;
 
         const formattedDate = `${String(day).padStart(2, '0')}-${String(month + 1).padStart(2, '0')}-${year}`;
         onChange(formattedDate);
@@ -222,10 +223,9 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
         const year = viewDate.getFullYear();
         const month = viewDate.getMonth();
         const fullDate = new Date(year, month, day, 12, 0, 0);
-        fullDate.setHours(12, 0, 0, 0);
 
-        if (minDateObj && fullDate < minDateObj) return true;
-        if (maxDateObj && fullDate > maxDateObj) return true;
+        if (minDateObj && fullDate.getTime() < minDateObj.getTime()) return true;
+        if (maxDateObj && fullDate.getTime() > maxDateObj.getTime()) return true;
         return false;
     };
 
@@ -233,8 +233,8 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
         const today = new Date();
         today.setHours(12, 0, 0, 0);
 
-        if (minDateObj && today < minDateObj) return;
-        if (maxDateObj && today > maxDateObj) return;
+        if (minDateObj && today.getTime() < minDateObj.getTime()) return;
+        if (maxDateObj && today.getTime() > maxDateObj.getTime()) return;
 
         const formattedDate = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
         onChange(formattedDate);
@@ -397,6 +397,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
     filters,
     onFilterChange,
     onSearch,
+    onClear,
     totalTickets,
     disableStatusFilter,
 }) => {
@@ -596,6 +597,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                             start_date: '',
                             end_date: '',
                         });
+                        if (onClear) onClear();
                     }}
                 >
                     <Text style={styles.actionButtonText}>Clear</Text>

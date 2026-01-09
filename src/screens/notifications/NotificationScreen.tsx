@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
     View,
     Text,
@@ -12,8 +12,8 @@ import { Bell, Info, Clock, CheckCircle, Check, CheckCheck } from 'lucide-react-
 import { COLORS } from '../../constants/theme';
 import { callAPIWithEnc } from '../../apis/common/api';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigation } from '@react-navigation/native';
-
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+ 
 // API response structure
 interface ApiNotification {
     notification_id: string;
@@ -23,7 +23,7 @@ interface ApiNotification {
     notification_seen_date: string | null;
     ticket_number: string;
 }
-
+ 
 // UI structure
 interface Alert {
     id: string;
@@ -40,46 +40,31 @@ interface Alert {
     ticket_number: string;
     ticket_date: string;
 }
-
+ 
 export const NotificationScreen = () => {
     // @ts-ignore
     const { user } = useAuth();
     const navigation = useNavigation();
+    const isFocused = useIsFocused();
     const [alerts, setAlerts] = useState<Alert[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
-
-    useEffect(() => {
-        fetchAlerts();
-    }, []);
-
-    const notificationSeen = async (alertId: string) => {
+ 
+    const fetchAlerts = useCallback(async (showLoading = true) => {
         try {
-            await callAPIWithEnc('vendor/updatenotificationSeen', 'POST', {
-                notification_id: parseInt(alertId),
-                user_id: user?.user_id,
-                user_type_id: user?.user_type_id,
-            });
-        } catch (error) {
-            console.error('Failed to mark notification as seen:', error);
-        }
-    };
-
-    const fetchAlerts = async () => {
-        try {
-            setLoading(true);
-
+            if (showLoading) setLoading(true);
+ 
             const response = await callAPIWithEnc('vendor/getNotificationDetails', 'POST', {
                 user_id: user?.user_id,
                 user_type_id: user?.user_type_id,
                 vendor_id: user?.vendor_id,
             });
-
+ 
             const apiData: ApiNotification[] = Array.isArray(response)
                 ? response
                 : (response as any)?.data || [];
-
+ 
             const mappedAlerts: Alert[] = apiData
                 .filter((item) => {
                     const userTypeId = String(user?.user_type_id || '');
@@ -101,13 +86,11 @@ export const NotificationScreen = () => {
                 })
                 .map((item) => {
                     const dateStr = item.status_change_date.replace(' ', 'T');
-
-                    console.log('item', item);
-
+ 
                     let title = 'System Notification';
                     let message = 'New status update available';
                     let severity: Alert['severity'] = 'low';
-
+ 
                     const userTypeId = String(user?.user_type_id || '');
                     if (userTypeId == '20' || userTypeId == '40') {
                         if (item.ntotification_text?.includes('Open')) {
@@ -145,12 +128,12 @@ export const NotificationScreen = () => {
                     } else if (item.ntotification_text) {
                         title = `Ticket Status: ${item.ntotification_text}`;
                         message = `The status has been updated to "${item.ntotification_text}"`;
-
+ 
                         const text = item.ntotification_text.toLowerCase();
                         if (text.includes('assigned')) severity = 'medium';
                         else if (text.includes('progress')) severity = 'high';
                     }
-
+ 
                     return {
                         id: item.notification_id,
                         title,
@@ -186,9 +169,9 @@ export const NotificationScreen = () => {
                         })(),
                     };
                 });
-
+ 
             mappedAlerts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
+ 
             setAlerts(mappedAlerts);
         } catch (error) {
             console.error('Failed to fetch notifications:', error);
@@ -196,26 +179,56 @@ export const NotificationScreen = () => {
             setLoading(false);
             setRefreshing(false);
         }
+    }, [user]);
+ 
+    useEffect(() => {
+        if (isFocused) {
+            fetchAlerts(true);
+        }
+    }, [isFocused, fetchAlerts]);
+ 
+    const notificationSeen = async (alertId: string) => {
+        try {
+            await callAPIWithEnc('vendor/updatenotificationSeen', 'POST', {
+                notification_id: parseInt(alertId),
+                user_id: user?.user_id,
+                user_type_id: user?.user_type_id,
+            });
+            // After marking as seen, optionally update local state to avoid refetch
+            setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, isRead: true } : a));
+        } catch (error) {
+            console.error('Failed to mark notification as seen:', error);
+        }
     };
-
+ 
     const onRefresh = () => {
         setRefreshing(true);
-        fetchAlerts();
+        fetchAlerts(false);
     };
-
+ 
     const unreadAlerts = alerts.filter((alert) => !alert.isRead);
-
+ 
     useEffect(() => {
-        if (unreadAlerts.length > 0) {
-            notificationSeen(unreadAlerts[0].id);
-        }
+        if (!unreadAlerts || unreadAlerts.length === 0) return;
+ 
+        const markAllAsSeen = async () => {
+            try {
+                await Promise.all(
+                    unreadAlerts.map(alert => notificationSeen(alert.id))
+                );
+            } catch (error) {
+                console.error("Failed to mark notifications as seen", error);
+            }
+        };
+ 
+        markAllAsSeen();
     }, [unreadAlerts]);
-
+ 
     const filteredAlerts = alerts.filter((alert) => {
         if (filter === 'unread') return !alert.isRead;
         return true;
     });
-
+ 
     const getSeverityColor = (severity: string) => {
         const colors = {
             low: { bg: '#f3f4f6', text: '#1f2937', border: '#e5e7eb' },
@@ -225,7 +238,7 @@ export const NotificationScreen = () => {
         };
         return colors[severity as keyof typeof colors] || colors.low;
     };
-
+ 
     const getTypeIcon = (type: string) => {
         switch (type) {
             case 'status_change':
@@ -236,21 +249,26 @@ export const NotificationScreen = () => {
                 return Bell;
         }
     };
-
+ 
     const formatTime = (date: Date) => {
         if (!date) return '';
         const now = new Date();
         const diff = now.getTime() - date.getTime();
         const minutes = Math.floor(diff / (1000 * 60));
-
+ 
         if (minutes < 1) return 'Just now';
         if (minutes < 60) return `${minutes}m ago`;
         const hours = Math.floor(minutes / 60);
         if (hours < 24) return `${hours}h ago`;
         return date.toLocaleDateString();
     };
-
-    const handleAlertPress = (alert: Alert) => {
+ 
+    const handleAlertPress = async (alert: Alert) => {
+        // Mark as seen if unread
+        if (!alert.isRead) {
+            await notificationSeen(alert.id);
+        }
+ 
         // Navigate to tickets screen with status filter
         // @ts-ignore
         navigation.navigate('Tickets', {
@@ -259,7 +277,7 @@ export const NotificationScreen = () => {
             ticketDate: alert.ticket_date,
         });
     };
-
+ 
     return (
         <View style={styles.container}>
             {/* Header */}
@@ -274,7 +292,7 @@ export const NotificationScreen = () => {
                     )}
                 </View>
             </View>
-
+ 
             {/* Filters */}
             <View style={styles.filterContainer}>
                 <TouchableOpacity
@@ -304,7 +322,7 @@ export const NotificationScreen = () => {
                     </Text>
                 </TouchableOpacity>
             </View>
-
+ 
             {/* Alerts List */}
             <ScrollView
                 style={styles.scrollView}
@@ -322,10 +340,10 @@ export const NotificationScreen = () => {
                     </View>
                 ) : (
                     <View style={styles.alertsList}>
-                        {filteredAlerts.map((alert,index) => {
+                        {filteredAlerts.map((alert, index) => {
                             const Icon = getTypeIcon(alert.type);
                             const severityColor = getSeverityColor(alert.severity);
-
+ 
                             return (
                                 <TouchableOpacity
                                     key={index}
@@ -399,7 +417,7 @@ export const NotificationScreen = () => {
         </View>
     );
 };
-
+ 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
@@ -580,3 +598,5 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 });
+ 
+ 

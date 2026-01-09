@@ -78,12 +78,13 @@ export const DashboardScreen = () => {
                 <View style={styles.row}>
                     <View style={styles.col}>
                         <StatsCard
-                            title="In-Progress"
+                            title="Total Resolved Tickets"
                             value={dashboardData?.total_inprogress_ticket || 0}
-                            change="Currently active"
+                            change="Successfully Resolved"
                             changeType="neutral"
                             icon={Activity}
-                            color="orange"
+                            color="green"
+                            style={{ flex: 1, marginBottom: 0 }}
                             onPress={() => navigation.navigate('Tickets', { sid: '230', disableStatusFilter: true, timestamp: Date.now() })}
                         />
                     </View>
@@ -95,6 +96,7 @@ export const DashboardScreen = () => {
                             changeType="neutral"
                             icon={ClipboardList}
                             color="blue"
+                            style={{ flex: 1, marginBottom: 0 }}
                             onPress={() => navigation.navigate('Tickets', { sid: '220', disableStatusFilter: true, timestamp: Date.now() })}
                         />
                     </View>
@@ -102,7 +104,7 @@ export const DashboardScreen = () => {
             </View>
 
             {/* Charts & Lists */}
-            {/* {dashboardData && <CCTVStatusChart stats={dashboardData} />} */}
+            {dashboardData && <CCTVStatusChart stats={dashboardData} />}
 
             <TicketList tickets={recentTickets} />
         </ScrollView>

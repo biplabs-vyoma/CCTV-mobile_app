@@ -126,7 +126,7 @@ export const CCTVMonitorScreen = () => {
     const renderItem = ({ item }: { item: CCTVDevice }) => (
         <View style={styles.card}>
             <View style={styles.cardHeader}>
-                <View>
+                <View style={{ flex: 1, marginRight: SPACING.s }}>
                     <Text style={styles.cardTitle}>{item.cctv_name}</Text>
                     <Text style={styles.cardSubtitle}>{item.cctv_serial_number}</Text>
                 </View>
@@ -355,18 +355,21 @@ const styles = StyleSheet.create({
     },
     // Badge
     badge: {
-        paddingHorizontal: 8,
+        paddingHorizontal: 12,
         paddingVertical: 4,
         borderRadius: 12,
+        minWidth: 75,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     badgeSuccess: { backgroundColor: '#DCFCE7' },
     badgeError: { backgroundColor: '#FEE2E2' },
     badgeWarning: { backgroundColor: '#FEF3C7' },
     badgeDefault: { backgroundColor: '#F3F4F6' },
-    badgeTextSuccess: { color: '#166534', fontSize: 10, fontWeight: 'bold' },
-    badgeTextError: { color: '#991B1B', fontSize: 10, fontWeight: 'bold' },
-    badgeTextWarning: { color: '#92400E', fontSize: 10, fontWeight: 'bold' },
-    badgeTextDefault: { color: '#374151', fontSize: 10, fontWeight: 'bold' },
+    badgeTextSuccess: { color: '#166534', fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
+    badgeTextError: { color: '#991B1B', fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
+    badgeTextWarning: { color: '#92400E', fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
+    badgeTextDefault: { color: '#374151', fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
     // Pagination
     pagination: {
         flexDirection: 'row',
