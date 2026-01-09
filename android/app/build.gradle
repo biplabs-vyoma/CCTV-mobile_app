@@ -134,18 +134,10 @@ android {
             if (abiFilter != null) {
                 newApkName += "_${abiFilter}" // Append ABI (e.g., _armeabi-v7a or _arm64-v8a)
             }
-            newApkName += ".apk"
-
-            // Apply the custom file name
+            newApkName += ".apk"            
             outputFileName = newApkName
         }
     }
-
-
-
-
-
-
 }
 
 dependencies {

@@ -164,7 +164,7 @@ export const CCTVMonitorScreen = () => {
             <View style={styles.topBar}>
                 <View>
                     <Text style={styles.screenTitle}>CCTV Monitoring</Text>
-                    <Text style={styles.screenSubtitle}>Monitor and manage all CCTV devices across Kolkata</Text>
+                    {/* <Text style={styles.screenSubtitle}>Monitor and manage all CCTV devices across Kolkata</Text> */}
                 </View>
                 {canAddCamera && (
                     <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>

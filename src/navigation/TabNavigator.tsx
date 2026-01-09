@@ -56,7 +56,7 @@ export const TabNavigator = () => {
 
             // Then set interval (15 seconds)
             if (!pollingIntervalRef.current) {
-                pollingIntervalRef.current = setInterval(fetchUnreadCount, 15000);
+                pollingIntervalRef.current = setInterval(fetchUnreadCount, 30000);
             }
         };
 
