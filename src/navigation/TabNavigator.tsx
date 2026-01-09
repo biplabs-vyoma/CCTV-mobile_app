@@ -6,32 +6,32 @@ import { LayoutDashboard, Video, ClipboardList, Activity, BarChart3, Bell } from
 import { CustomHeader } from '../components/CustomHeader';
 import { useAuth } from '../context/AuthContext';
 import { callAPIWithEnc } from '../apis/common/api';
-
+ 
 // Screens
 import { DashboardScreen } from '../screens/dashboard/DashboardScreen';
 import { CCTVMonitorScreen } from '../screens/cctv/CCTVMonitorScreen';
 import { TicketQueueScreen } from '../screens/tickets/TicketQueueScreen';
 import { NotificationScreen } from '../screens/notifications/NotificationScreen';
-
+ 
 const Tab = createBottomTabNavigator();
-
+ 
 export const TabNavigator = () => {
     // @ts-ignore
     const { user } = useAuth();
     const [unreadCount, setUnreadCount] = useState(0);
     const [activeRouteName, setActiveRouteName] = useState('Dashboard');
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
+ 
     const fetchUnreadCount = useCallback(async () => {
         if (!user?.user_id) return;
-
+ 
         try {
             const response = await callAPIWithEnc('vendor/getNotificationDetails', 'POST', {
                 user_id: user?.user_id,
                 user_type_id: user?.user_type_id,
                 vendor_id: user?.vendor_id,
             });
-
+ 
             const apiData = Array.isArray(response) ? response : (response as any)?.data || [];
             const unread = apiData.filter((item: any) => item.is_seen === '0').length;
             setUnreadCount(unread);
@@ -39,7 +39,7 @@ export const TabNavigator = () => {
             console.error('Failed to fetch unread count in TabNavigator:', error);
         }
     }, [user]);
-
+ 
     useEffect(() => {
         // Polling Logic
         const startPolling = () => {
@@ -50,18 +50,18 @@ export const TabNavigator = () => {
                 }
                 return;
             }
-
+ 
             // Fetch once immediately
             fetchUnreadCount();
-
+ 
             // Then set interval (15 seconds)
             if (!pollingIntervalRef.current) {
                 pollingIntervalRef.current = setInterval(fetchUnreadCount, 30000);
             }
         };
-
+ 
         startPolling();
-
+ 
         return () => {
             if (pollingIntervalRef.current) {
                 clearInterval(pollingIntervalRef.current);
@@ -69,7 +69,7 @@ export const TabNavigator = () => {
             }
         };
     }, [activeRouteName, fetchUnreadCount]);
-
+ 
     return (
         <Tab.Navigator
             screenOptions={({ route }) => ({
@@ -88,14 +88,14 @@ export const TabNavigator = () => {
                 },
                 tabBarIcon: ({ color, size }) => {
                     let IconComponent;
-
+ 
                     if (route.name === 'Dashboard') IconComponent = LayoutDashboard;
                     else if (route.name === 'CCTV') IconComponent = Video;
                     else if (route.name === 'Tickets') IconComponent = ClipboardList;
                     else if (route.name === 'Notifications') IconComponent = Bell;
                     else if (route.name === 'Network') IconComponent = Activity;
                     else if (route.name === 'Performance') IconComponent = BarChart3;
-
+ 
                     if (route.name === 'Notifications') {
                         return (
                             <View style={styles.iconContainer}>
@@ -104,7 +104,7 @@ export const TabNavigator = () => {
                             </View>
                         );
                     }
-
+ 
                     return IconComponent ? <IconComponent color={color} size={size} /> : null;
                 },
             })}
@@ -147,7 +147,7 @@ export const TabNavigator = () => {
         </Tab.Navigator>
     );
 };
-
+ 
 const styles = StyleSheet.create({
     iconContainer: {
         width: 24,
@@ -167,3 +167,5 @@ const styles = StyleSheet.create({
         borderColor: '#fff',
     }
 });
+ 
+ 

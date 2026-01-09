@@ -8,10 +8,14 @@ interface CCTVStatusChartProps {
 }
 
 export const CCTVStatusChart: React.FC<CCTVStatusChartProps> = ({ stats }) => {
-    const total = stats.total_cctv || 1; // Prevent division by zero
-    const onlinePercent = (stats.total_online_cctv / total) * 100;
-    const offlinePercent = (stats.total_offline_cctv / total) * 100;
-    const maintenancePercent = (stats.open_ticket / total) * 100; // Assuming open_tickets relates to maintenance/issues
+    // Repurpose: Online as Resolve, Offline as Assigned
+    const resolveCount = stats.total_inprogress_ticket || 0;
+    const assignedCount = stats.total_assigned_ticket || 0;
+
+    const total = (resolveCount + assignedCount) || 1;
+
+    const resolvePercent = (resolveCount / total) * 100;
+    const assignedPercent = (assignedCount / total) * 100;
 
     const renderProgressBar = (label: string, count: number, percent: number, color: string) => (
         <View style={styles.progressContainer}>
@@ -27,26 +31,21 @@ export const CCTVStatusChart: React.FC<CCTVStatusChartProps> = ({ stats }) => {
 
     return (
         <View style={styles.card}>
-            <Text style={styles.cardTitle}>CCTV Status Distribution</Text>
+            <Text style={styles.cardTitle}>Ticket Status Distribution</Text>
 
             <View style={styles.chartContainer}>
-                {renderProgressBar('Online', stats.total_online_cctv, onlinePercent, '#22c55e')}
-                {renderProgressBar('Offline', stats.total_offline_cctv, offlinePercent, '#ef4444')}
-                {renderProgressBar('Maintenance', stats.open_ticket, maintenancePercent, '#eab308')}
+                {renderProgressBar('Resolve', resolveCount, resolvePercent, '#22c55e')}
+                {renderProgressBar('Assigned', assignedCount, assignedPercent, '#3b82f6')}
             </View>
 
             <View style={styles.legendContainer}>
                 <View style={styles.legendItem}>
                     <View style={[styles.dot, { backgroundColor: '#22c55e' }]} />
-                    <Text style={styles.legendText}>Online</Text>
+                    <Text style={styles.legendText}>Resolve</Text>
                 </View>
                 <View style={styles.legendItem}>
-                    <View style={[styles.dot, { backgroundColor: '#ef4444' }]} />
-                    <Text style={styles.legendText}>Offline</Text>
-                </View>
-                <View style={styles.legendItem}>
-                    <View style={[styles.dot, { backgroundColor: '#eab308' }]} />
-                    <Text style={styles.legendText}>Maintenance</Text>
+                    <View style={[styles.dot, { backgroundColor: '#3b82f6' }]} />
+                    <Text style={styles.legendText}>Assigned</Text>
                 </View>
             </View>
         </View>

@@ -50,22 +50,22 @@ export const TicketList: React.FC<TicketListProps> = ({
         );
     }
 
-    if (!tickets && !isLoading) {
+    // Default message when no search has been performed yet
+    if (!hasSearched) {
         return (
             <View style={styles.emptyContainer}>
                 <Inbox size={48} color={COLORS?.textSecondary || '#666'} />
-                <Text style={styles.emptyText}>Filter and click search to view tickets</Text>
+                <Text style={styles.emptyText}>Select filters and click search to view tickets</Text>
             </View>
         );
     }
 
-    if (tickets && tickets.length === 0 && !isLoading) {
+    // Message when search has been performed but no results found
+    if ((!tickets || tickets.length === 0) && !isLoading) {
         return (
             <View style={styles.emptyContainer}>
                 <Inbox size={48} color={COLORS?.textSecondary || '#666'} />
-                <Text style={styles.emptyText}>
-                    {hasSearched ? 'No tickets found' : 'Select filters and click search to view tickets'}
-                </Text>
+                <Text style={styles.emptyText}>No tickets found</Text>
             </View>
         );
     }

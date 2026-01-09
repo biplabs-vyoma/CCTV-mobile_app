@@ -175,6 +175,7 @@ export const TicketQueueScreen: React.FC = () => {
                     end_date: '',
                 });
                 setTicketRecentActivity(null);
+                setHasSearched(false);
             } else {
                 // When coming from stats cards or notifications, reset other filters but keep the status
                 const newFilters = {
@@ -190,6 +191,7 @@ export const TicketQueueScreen: React.FC = () => {
                 };
                 setFilters(newFilters);
                 setTicketRecentActivity(null);
+                setHasSearched(false);
 
                 // Auto-search when coming from notification with ticket details
                 if (ticketNumber && ticketDate) {
@@ -357,6 +359,10 @@ export const TicketQueueScreen: React.FC = () => {
                 filters={filters}
                 onFilterChange={setFilters}
                 onSearch={fetchGetTicketDetailsListByUser}
+                onClear={() => {
+                    setHasSearched(false);
+                    setTicketRecentActivity(null);
+                }}
                 totalTickets={filteredTickets?.length || 0}
                 disableStatusFilter={disableStatusFilter}
             />
