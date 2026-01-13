@@ -69,7 +69,7 @@ export const TicketQueueScreen: React.FC = () => {
 
     const [filters, setFilters] = useState({
         status_id: '0',
-        priority_id: '0',
+        priority_id: '',
         vendor_id: '0',
         status_name: '',
         priority_name: '',
@@ -77,26 +77,56 @@ export const TicketQueueScreen: React.FC = () => {
         search: '',
         start_date: '',
         end_date: '',
+        category_id: '',
+        category_name: '',
     });
     const [hasSearched, setHasSearched] = useState(false);
 
-    const fetchGetTicketDetailsListByUser = useCallback(async (overrideFilters?: any) => {
+
+    console.log('filters', filters);
+
+    const fetchGetTicketDetailsListByUser = useCallback(async (overrideFilters?: any, isAutoSearch: boolean = false) => {
         // Check if overrideFilters is a valid filter object and not a React event object
-        const isFilterObject = overrideFilters && typeof overrideFilters === 'object' && 'status_id' in overrideFilters;
+        const isFilterObject = overrideFilters && typeof overrideFilters === 'object' && 'priority_id' in overrideFilters;
         const currentFilters = isFilterObject ? overrideFilters : filters;
 
-        // Validation: Required fields
-        if (!currentFilters.status_id || currentFilters.status_id === '0' || !currentFilters.start_date || !currentFilters.end_date) {
+        // 1. Validation: Status (Strict Manual)
+        if (!isAutoSearch && (!currentFilters.status_id || currentFilters.status_id === '0')) {
             setAlertConfig({
                 visible: true,
                 title: 'Selection Required',
-                message: 'Please select Status, Start Date, and End Date to fetch tickets.',
+                message: 'Please select Status.',
                 type: 'warning'
             });
             return;
         }
 
-        // Validation: Date Range
+        // 2. Validation: Date Range (Required for all)
+        if (!currentFilters.start_date || !currentFilters.end_date) {
+            setAlertConfig({
+                visible: true,
+                title: 'Selection Required',
+                message: 'Please select Start Date and End Date.',
+                type: 'warning'
+            });
+            return;
+        }
+
+        // 3. Validation: Priority & Category (Strict Manual)
+        if (!isAutoSearch) {
+            // For Priority/Category, '0' is valid ("All"), so we strictly check for empty string
+            if (currentFilters.priority_id === '' || currentFilters.category_id === '') {
+                setAlertConfig({
+                    visible: true,
+                    title: 'Selection Required',
+                    message: 'Please select Priority and Category.',
+                    type: 'warning'
+                });
+                return;
+            }
+        }
+
+        // Validation: Date Logic
         const startDateObj = new Date(convertDMYtoYMD(currentFilters.start_date) || '');
         const endDateObj = new Date(convertDMYtoYMD(currentFilters.end_date) || '');
 
@@ -116,11 +146,12 @@ export const TicketQueueScreen: React.FC = () => {
             const payload = {
                 user_id: Number(user?.user_id),
                 user_type_id: Number(user?.user_type_id),
-                status_id: currentFilters.status_id,
-                priority_id: currentFilters.priority_id,
+                severity_id: currentFilters.priority_id,
                 vendor_id: currentFilters.vendor_id,
                 start_date: currentFilters.start_date,
                 end_date: currentFilters.end_date,
+                category_id: Number(currentFilters.category_id || 0),
+                ticket_status_id: Number(currentFilters.status_id || 0),
             };
 
             console.log('Payload:', JSON.stringify(payload, null, 2));
@@ -165,7 +196,7 @@ export const TicketQueueScreen: React.FC = () => {
                 // Perform a FULL reset when clicking the tab directly
                 setFilters({
                     status_id: '0',
-                    priority_id: '0',
+                    priority_id: '',
                     vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
                     status_name: '',
                     priority_name: '',
@@ -173,6 +204,8 @@ export const TicketQueueScreen: React.FC = () => {
                     search: '',
                     start_date: '',
                     end_date: '',
+                    category_id: '',
+                    category_name: '',
                 });
                 setTicketRecentActivity(null);
                 setHasSearched(false);
@@ -188,6 +221,8 @@ export const TicketQueueScreen: React.FC = () => {
                     search: ticketNumber || '', // Set search to ticket number from notification
                     start_date: ticketDate || '', // Set start date from notification
                     end_date: ticketDate || '', // Set end date same as start date
+                    category_id: '0',
+                    category_name: '',
                 };
                 setFilters(newFilters);
                 setTicketRecentActivity(null);
@@ -195,7 +230,7 @@ export const TicketQueueScreen: React.FC = () => {
 
                 // Auto-search when coming from notification with ticket details
                 if (ticketNumber && ticketDate) {
-                    fetchGetTicketDetailsListByUser(newFilters);
+                    fetchGetTicketDetailsListByUser(newFilters, true);
                 }
             }
         }

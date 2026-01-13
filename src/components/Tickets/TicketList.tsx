@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
     },
     listContent: {
         padding: 16,
-        paddingBottom: 80, // Space for bottom tab
+        paddingBottom: 20, // Reduced space
     },
     loadingContainer: {
         flex: 1,

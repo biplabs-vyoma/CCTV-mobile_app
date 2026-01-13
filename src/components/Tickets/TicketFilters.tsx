@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, StyleSheet, ScrollView } from 'react-native';
-import { Search, Filter, ChevronDown, X, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Search, Filter, ChevronDown, X, ChevronLeft, ChevronRight, Clock } from 'lucide-react-native';
 import { callAPIWithEnc } from '../../apis/common/api';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS } from '../../constants/theme';
@@ -16,6 +16,8 @@ interface TicketFiltersProps {
         search: string;
         start_date: string;
         end_date: string;
+        category_id: string;
+        category_name: string;
     };
     onFilterChange: (filters: any) => void;
     onSearch: () => void;
@@ -126,34 +128,32 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
     const parseFormattedDate = (dateStr: string) => {
         if (!dateStr) return new Date();
         const parts = dateStr.split('-');
-        if (parts.length !== 3) return new Date();
-        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        if (parts.length === 3) {
+            // dd-mm-yyyy
+            return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+        return new Date();
     };
 
-    const initialDate = parseFormattedDate(value);
-    const [viewDate, setViewDate] = useState(initialDate); // Date for calendar navigation
+    const [viewDate, setViewDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState(parseFormattedDate(value));
     const [showMonthPicker, setShowMonthPicker] = useState(false);
     const [showYearPicker, setShowYearPicker] = useState(false);
-    const selectedDate = initialDate;
 
-    // Parse constraints
-    const minDateObj = minDate ? parseFormattedDate(minDate) : null;
-    const maxDateObj = maxDate ? parseFormattedDate(maxDate) : null;
-
-    if (minDateObj) minDateObj.setHours(12, 0, 0, 0);
-    if (maxDateObj) maxDateObj.setHours(12, 0, 0, 0);
-
+    // Generate years for picker (10 years back and forth)
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
     const months = [
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
     ];
 
     const getDaysInMonth = (year: number, month: number) => {
-        return new Date(year, month + 1, 0, 12, 0, 0).getDate();
+        return new Date(year, month + 1, 0).getDate();
     };
 
     const getFirstDayOfMonth = (year: number, month: number) => {
-        return new Date(year, month, 1, 12, 0, 0).getDay();
+        return new Date(year, month, 1).getDay();
     };
 
     const generateCalendar = () => {
@@ -161,80 +161,106 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
         const month = viewDate.getMonth();
         const daysInMonth = getDaysInMonth(year, month);
         const firstDay = getFirstDayOfMonth(year, month);
+        const days: (number | null)[] = [];
 
-        const calendarDays = [];
-        // Fill empty slots for previous month's end
+        // Add empty slots for days before start of month
         for (let i = 0; i < firstDay; i++) {
-            calendarDays.push(null);
-        }
-        // Fill current month's days
-        for (let i = 1; i <= daysInMonth; i++) {
-            calendarDays.push(i);
+            days.push(null);
         }
 
-        // Fill trailing empty slots to maintain 6 rows (42 cells) for a stable UI height
-        while (calendarDays.length < 42) {
-            calendarDays.push(null);
+        // Add days of month
+        for (let i = 1; i <= daysInMonth; i++) {
+            days.push(i);
         }
-        return calendarDays;
+
+        return days;
     };
 
     const changeMonth = (offset: number) => {
-        const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1);
+        const newDate = new Date(viewDate);
+        newDate.setMonth(newDate.getMonth() + offset);
         setViewDate(newDate);
     };
 
     const handleSelectMonth = (monthIndex: number) => {
-        const newDate = new Date(viewDate.getFullYear(), monthIndex, 1);
+        const newDate = new Date(viewDate);
+        newDate.setMonth(monthIndex);
         setViewDate(newDate);
         setShowMonthPicker(false);
     };
 
     const handleSelectYear = (year: number) => {
-        const newDate = new Date(year, viewDate.getMonth(), 1);
+        const newDate = new Date(viewDate);
+        newDate.setFullYear(year);
         setViewDate(newDate);
         setShowYearPicker(false);
     };
 
-    const years = Array.from({ length: 101 }, (_, i) => viewDate.getFullYear() - 50 + i);
-
     const handleSelectDay = (day: number | null) => {
         if (!day) return;
-        const year = viewDate.getFullYear();
-        const month = viewDate.getMonth();
-        const fullDate = new Date(year, month, day, 12, 0, 0);
 
-        if (minDateObj && fullDate.getTime() < minDateObj.getTime()) return;
-        if (maxDateObj && fullDate.getTime() > maxDateObj.getTime()) return;
+        const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+        const today = new Date();
 
-        const formattedDate = `${String(day).padStart(2, '0')}-${String(month + 1).padStart(2, '0')}-${year}`;
+        // Reset time parts for accurate comparison
+        newDate.setHours(0, 0, 0, 0);
+
+        // Check if day is disabled
+        if (isDayDisabled(day)) return;
+
+        setSelectedDate(newDate);
+        const formattedDate = `${String(day).padStart(2, '0')}-${String(viewDate.getMonth() + 1).padStart(2, '0')}-${viewDate.getFullYear()}`;
         onChange(formattedDate);
         setModalVisible(false);
     };
 
     const isSelected = (day: number) => {
-        return selectedDate.getDate() === day &&
-            selectedDate.getMonth() === viewDate.getMonth() &&
-            selectedDate.getFullYear() === viewDate.getFullYear();
+        /*
+        const d = selectedDate;
+        return d && d.getDate() === day && 
+               d.getMonth() === viewDate.getMonth() && 
+               d.getFullYear() === viewDate.getFullYear();
+        */
+        // Simple string comparison for prop value
+        if (!value) return false;
+        const parts = value.split('-');
+        if (parts.length !== 3) return false;
+        return parseInt(parts[0]) === day &&
+            parseInt(parts[1]) - 1 === viewDate.getMonth() &&
+            parseInt(parts[2]) === viewDate.getFullYear();
     };
 
     const isDayDisabled = (day: number | null) => {
         if (!day) return true;
-        const year = viewDate.getFullYear();
-        const month = viewDate.getMonth();
-        const fullDate = new Date(year, month, day, 12, 0, 0);
 
-        if (minDateObj && fullDate.getTime() < minDateObj.getTime()) return true;
-        if (maxDateObj && fullDate.getTime() > maxDateObj.getTime()) return true;
+        const dateToCheck = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+        dateToCheck.setHours(0, 0, 0, 0);
+
+        if (minDate) {
+            const minParts = minDate.split('-');
+            if (minParts.length === 3) {
+                const minD = new Date(parseInt(minParts[2]), parseInt(minParts[1]) - 1, parseInt(minParts[0]));
+                minD.setHours(0, 0, 0, 0);
+                if (dateToCheck < minD) return true;
+            }
+        }
+
+        if (maxDate) {
+            const maxParts = maxDate.split('-');
+            if (maxParts.length === 3) {
+                const maxD = new Date(parseInt(maxParts[2]), parseInt(maxParts[1]) - 1, parseInt(maxParts[0]));
+                maxD.setHours(0, 0, 0, 0);
+                if (dateToCheck > maxD) return true;
+            }
+        }
+
         return false;
     };
 
     const handleToday = () => {
         const today = new Date();
-        today.setHours(12, 0, 0, 0);
-
-        if (minDateObj && today.getTime() < minDateObj.getTime()) return;
-        if (maxDateObj && today.getTime() > maxDateObj.getTime()) return;
+        setViewDate(today);
+        setSelectedDate(today);
 
         const formattedDate = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
         onChange(formattedDate);
@@ -257,6 +283,7 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
                 <Text style={[styles.dateInputText, !value && { color: COLORS?.textSecondary || '#666' }]}>
                     {value || placeholder}
                 </Text>
+                <Clock size={16} color={COLORS?.textSecondary || '#666'} />
             </TouchableOpacity>
 
             <Modal
@@ -278,21 +305,10 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
                             <TouchableOpacity onPress={() => changeMonth(-1)}>
                                 <ChevronLeft size={24} color={COLORS?.primary || '#2563eb'} />
                             </TouchableOpacity>
-                            <View style={styles.headerSelectionRow}>
-                                <TouchableOpacity onPress={() => {
-                                    setShowMonthPicker(!showMonthPicker);
-                                    setShowYearPicker(false);
-                                }}>
+                            <View style={{ alignItems: 'center' }}>
+                                <TouchableOpacity onPress={() => setShowMonthPicker(!showMonthPicker)}>
                                     <Text style={styles.monthYearText}>
-                                        {months[viewDate.getMonth()]}
-                                    </Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => {
-                                    setShowYearPicker(!showYearPicker);
-                                    setShowMonthPicker(false);
-                                }}>
-                                    <Text style={styles.monthYearText}>
-                                        {viewDate.getFullYear()}
+                                        {months[viewDate.getMonth()]} {viewDate.getFullYear()}
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -403,6 +419,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
 }) => {
     const [vendors, setVendors] = useState<Array<any>>([]);
     const [statuses, setStatuses] = useState<Array<any>>([]);
+    const [categories, setCategories] = useState<Array<any>>([]);
     // @ts-ignore
     const { user } = useAuth();
 
@@ -429,8 +446,17 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 console.log('Error fetching statuses', e);
             }
         };
+        const getCategoryOptions = async () => {
+            try {
+                const response: any = await callAPIWithEnc('master/getIncidentCategoryDetails', 'POST', {});
+                setCategories(response?.data || []);
+            } catch (e) {
+                console.log('Error fetching categories', e);
+            }
+        };
         getVendorOptions();
         getStatusOptions();
+        getCategoryOptions();
     }, []);
 
     useEffect(() => {
@@ -481,7 +507,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 });
             }
         } else if (key === 'status') {
-            if (value === '0') {
+            if (value == '0') {
                 onFilterChange({ ...filters, status_id: '0', status_name: '' });
             } else {
                 const status = statuses.find((s) => s.status_id == value);
@@ -489,6 +515,17 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                     ...filters,
                     status_id: status?.status_id || '',
                     status_name: status?.status_name || '',
+                });
+            }
+        } else if (key === 'category') {
+            if (value === '0') {
+                onFilterChange({ ...filters, category_id: '0', category_name: '' });
+            } else {
+                const category = categories.find((c) => c.incident_category_id == value);
+                onFilterChange({
+                    ...filters,
+                    category_id: category?.incident_category_id || '',
+                    category_name: category?.incident_category_name || '',
                 });
             }
         } else {
@@ -547,21 +584,37 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 </View>
             </View>
 
-            {/* Row 3: Priority, Vendor, Clear, and User Info in ONE row */}
-            <View style={styles.bottomRow}>
-                <View style={[styles.filterWrapper, { flex: 1.4 }]}>
+            {/* Row 3: Priority & Category */}
+            <View style={styles.row}>
+                <View style={styles.filterWrapper}>
                     <SearchableSelect
                         options={priorities}
-                        value={filters.priority_id || '0'}
+                        value={filters.priority_id}
                         onChange={(value: string) => handleFilterUpdate('priority', value)}
                         labelKey="priority_name"
                         valueKey="priority_id"
-                        allOptionLabel="All Priorities" // Corrected label
-                        placeholder="Priority" // Corrected placeholder
+                        allOptionLabel="All Priorities"
+                        placeholder="Select Priority"
                     />
                 </View>
 
-                {!isVendorRestricted && (
+                <View style={styles.filterWrapper}>
+                    <SearchableSelect
+                        options={categories}
+                        value={filters.category_id}
+                        onChange={(value: string) => handleFilterUpdate('category', value)}
+                        labelKey="incident_category_name"
+                        valueKey="incident_category_id"
+                        allOptionLabel="All Categories"
+                        placeholder="Select Category"
+                    />
+                </View>
+            </View>
+
+
+            {/* Row 4: Vendor (if allowed) */}
+            {!isVendorRestricted && (
+                <View style={styles.row}>
                     <View style={styles.filterWrapper}>
                         <SearchableSelect
                             options={vendors}
@@ -574,44 +627,43 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                             disabled={isVendorRestricted}
                         />
                     </View>
-                )}
+                </View>
+            )}
 
+            {/* Row 5: Action Buttons */}
+            <View style={styles.actionRow}>
                 <TouchableOpacity
-                    style={[styles.searchButton, { flex: 0.8 }]}
+                    style={styles.searchButton}
                     onPress={() => onSearch()}
                 >
                     <Text style={styles.searchButtonText}>Search</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.actionButton, { flex: 0.8 }]}
+                    style={styles.actionButton}
                     onPress={() => {
                         onFilterChange({
                             search: '',
                             status_id: '',
                             status_name: '',
-                            priority_id: '0',
+                            priority_id: '',
                             priority_name: '',
                             vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
                             vendor_name: '',
                             start_date: '',
                             end_date: '',
+                            category_id: '',
+                            category_name: '',
                         });
                         if (onClear) onClear();
                     }}
                 >
                     <Text style={styles.actionButtonText}>Clear</Text>
                 </TouchableOpacity>
-
-                {/* <View style={[styles.userInfoBox, { flex: 0.8 }]}>
-                    <Text style={styles.userInfoText} numberOfLines={1}>
-                        {isVendorRestricted ? user?.vendor_name : user?.user_name || 'User'}
-                    </Text>
-                </View> */}
             </View>
 
             <Text style={styles.statsText}>Showing {totalTickets} tickets</Text>
-        </View>
+        </View >
     );
 };
 
@@ -625,11 +677,15 @@ const styles = StyleSheet.create({
     fullWidthRow: {
         marginBottom: 12,
     },
-    bottomRow: {
+    row: {
         flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        marginTop: 50,
+        gap: 12,
+        marginBottom: 12,
+    },
+    actionRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 4,
     },
     filterWrapper: {
         flex: 1,
@@ -643,6 +699,7 @@ const styles = StyleSheet.create({
         height: 50,
         borderWidth: 1,
         borderColor: COLORS?.border || '#ccc',
+        marginBottom: 12,
     },
     searchIcon: {
         marginRight: 8,
@@ -780,11 +837,12 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     datePickerContainer: {
-        flex: 1,
+        width: '100%',
     },
     dateRow: {
         flexDirection: 'row',
         gap: 8,
+        marginBottom: 12,
     },
     dateInputWrapper: {
         flex: 1,
@@ -811,7 +869,9 @@ const styles = StyleSheet.create({
         height: 40,
         borderWidth: 1,
         borderColor: COLORS?.border || '#ccc',
-        justifyContent: 'center',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     dateInputText: {
         fontSize: 13,

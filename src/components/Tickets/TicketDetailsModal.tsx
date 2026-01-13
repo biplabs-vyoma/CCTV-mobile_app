@@ -14,8 +14,7 @@ import {
     Platform,
     PermissionsAndroid
 } from 'react-native';
-import { launchCamera } from 'react-native-image-picker';
-import Geolocation from 'react-native-geolocation-service';
+import { CameraCapture } from '../CameraCapture';
 import {
     X,
     Clock,
@@ -29,8 +28,7 @@ import {
     Camera,
     Star,
     Check,
-    ChevronDown,
-    MapPin
+    ChevronDown
 } from 'lucide-react-native';
 import { Ticket, Engineer, ChatMessage, ChatSession } from '../../types/ticket';
 import { ChatInterface } from '../Chat/ChatInterface';
@@ -81,6 +79,21 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     const [statusOptions, setStatusOptions] = useState<any[]>([]);
     const [selectedStatusId, setSelectedStatusId] = useState('');
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+
+    // Resolution Category State
+    const [resolutionCategories, setResolutionCategories] = useState<any[]>([]);
+    const [selectedResolutionCategoryId, setSelectedResolutionCategoryId] = useState('');
+    const [isResolutionCategoryModalVisible, setIsResolutionCategoryModalVisible] = useState(false);
+    const [selectedResolutionCategoryName, setSelectedResolutionCategoryName] = useState('');
+    const [isLoadingResolutionCategories, setIsLoadingResolutionCategories] = useState(false);
+
+    // Sub Resolution Category State
+    const [subResolutionCategories, setSubResolutionCategories] = useState<any[]>([]);
+    const [selectedSubResolutionCategoryId, setSelectedSubResolutionCategoryId] = useState('');
+    const [isSubResolutionCategoryModalVisible, setIsSubResolutionCategoryModalVisible] = useState(false);
+    const [selectedSubResolutionCategoryName, setSelectedSubResolutionCategoryName] = useState('');
+    const [isLoadingSubResolutionCategories, setIsLoadingSubResolutionCategories] = useState(false);
+
     const [showCamera, setShowCamera] = useState(false);
     const [alertConfig, setAlertConfig] = useState<{
         visible: boolean;
@@ -88,9 +101,6 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         message: string;
         type: 'success' | 'error' | 'warning' | 'info';
         shouldCloseParent?: boolean;
-        onConfirm?: () => void;
-        confirmText?: string;
-        cancelText?: string;
     }>({
         visible: false,
         title: '',
@@ -98,12 +108,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         type: 'info',
         shouldCloseParent: false
     });
-
     const [isLoadingTimeline, setIsLoadingTimeline] = useState(true);
-    const [isSubmitting, setIsSubmitting] = useState(false); // New State for Full Screen Loader
-    const [isCapturingImage, setIsCapturingImage] = useState(false); // New State for Image Capture Loader
-    const [isFetchingEvidence, setIsFetchingEvidence] = useState(false);
-    const [isFetchingEngEvidence, setIsFetchingEngEvidence] = useState(false);
 
     const canManageTicket = [10, 20, 30, 40, 100].includes(Number(user?.user_type_id));
     const isTicketCreator = user?.user_id == ticket.ticket_created_user_id;
@@ -120,12 +125,12 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
     }, [ticketComments]);
 
-    // // Mock chat session (simplified from input)
-    // const mockChatSession: any = {
-    //     id: `chat_${ticket.ticket_id}`,
-    //     // ...other properties mocked
-    // };
-    // const mockChatMessages: any[] = [];
+    // Mock chat session (simplified from input)
+    const mockChatSession: any = {
+        id: `chat_${ticket.ticket_id}`,
+        // ...other properties mocked
+    };
+    const mockChatMessages: any[] = [];
 
     const getFieldEnginnerByVendor = async () => {
         try {
@@ -187,18 +192,11 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         console.log('ticket_image1:', ticket?.ticket_image1);
 
         if (!ticket?.ticket_image1) {
-            setAlertConfig({
-                visible: true,
-                title: 'Info',
-                message: 'No evidence image available.',
-                type: 'info',
-                shouldCloseParent: false
-            });
+            Alert.alert('Info', 'No evidence image available.');
             return;
         }
 
         try {
-            setIsFetchingEvidence(true);
             console.log('Calling API with filename:', ticket?.ticket_image1);
 
             const response: any = await callAPIWithoutEnc(
@@ -224,85 +222,13 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 setShowImageModal(true);
             } else {
                 console.error('No base64 data in response');
-                setAlertConfig({
-                    visible: true,
-                    title: 'Error',
-                    message: response?.message || 'Failed to load evidence image.',
-                    type: 'error',
-                    shouldCloseParent: false
-                });
+                Alert.alert('Error', response?.message || 'Failed to load evidence image.');
             }
         } catch (e: any) {
             console.error('Exception loading image:', e);
             console.error('Error message:', e?.message);
             console.error('Error stack:', e?.stack);
-            setAlertConfig({
-                visible: true,
-                title: 'Error',
-                message: 'Error loading image: ' + (e?.message || 'Unknown error'),
-                type: 'error',
-                shouldCloseParent: false
-            });
-        } finally {
-            setIsFetchingEvidence(false);
-        }
-    };
-
-    const getEngineerEvidenceImage = async () => {
-        if (!ticket?.enginner_evidence_path) {
-            setAlertConfig({
-                visible: true,
-                title: 'Info',
-                message: 'No engineer evidence image available.',
-                type: 'info',
-                shouldCloseParent: false
-            });
-            return;
-        }
-
-        try {
-            setIsFetchingEngEvidence(true);
-            console.log('Calling API with filename:', ticket?.enginner_evidence_path);
-
-            const response: any = await callAPIWithoutEnc(
-                'user/getImgAsBase64ByFileName',
-                'POST',
-                {
-                    filename: ticket?.enginner_evidence_path,
-                }
-            );
-
-            const base64Image = response?.data;
-            if (base64Image) {
-                setEvidenceImage(base64Image);
-                setShowImageModal(true);
-            } else {
-                setAlertConfig({
-                    visible: true,
-                    title: 'Error',
-                    message: response?.message || 'Failed to load evidence image.',
-                    type: 'error',
-                    shouldCloseParent: false
-                });
-            }
-        } catch (e: any) {
-            console.error('Exception loading image:', e);
-        } finally {
-            setIsFetchingEngEvidence(false);
-        }
-    };
-
-    const openMap = (lat: string, lng: string) => {
-        const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
-        const latLng = `${lat},${lng}`;
-        const label = 'Ticket Location';
-        const url = Platform.select({
-            ios: `${scheme}${label}@${latLng}`,
-            android: `${scheme}${latLng}(${label})`
-        });
-
-        if (url) {
-            Linking.openURL(url);
+            Alert.alert('Error', 'Error loading image: ' + (e?.message || 'Unknown error'));
         }
     };
 
@@ -320,207 +246,91 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
     };
 
+    const getResolutionCategories = async () => {
+        try {
+            console.log('--- Fetching Resolution Categories ---');
+            const response: any = await callAPIWithEnc('vendor/getResolutionCategory', 'POST', {});
+            console.log('Resolution Categories API Response:', response);
+
+            if (response?.status === 0 && Array.isArray(response?.data)) {
+                setResolutionCategories(response.data);
+            } else {
+                console.warn('Invalid resolution category response', response);
+                setResolutionCategories([]);
+            }
+        } catch (e) {
+            console.error('Error fetching resolution categories:', e);
+            setResolutionCategories([]);
+            toast.error('Failed to load resolution categories');
+        }
+    };
+
+    const getSubResolutionCategories = async (categoryId: string) => {
+        try {
+            setIsLoadingSubResolutionCategories(true);
+            setSubResolutionCategories([]); // Clear previous
+            console.log('--- Fetching Sub Resolution Categories for ID:', categoryId);
+
+            const payload = { resolution_category_id: categoryId };
+            const response: any = await callAPIWithEnc('vendor/getResolutionCategoryByCategoryID', 'POST', payload);
+            console.log('Sub Resolution Categories API Response:', response);
+
+            if (response?.status === 0 && Array.isArray(response?.data)) {
+                setSubResolutionCategories(response.data);
+            } else {
+                console.log('No sub-categories found or invalid response', response);
+                setSubResolutionCategories([]);
+            }
+        } catch (e) {
+            console.error('Error fetching sub resolution categories:', e);
+            setSubResolutionCategories([]);
+        } finally {
+            setIsLoadingSubResolutionCategories(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === 'engineer') {
             getFieldEnginnerByVendor();
         }
         if (activeTab === 'status') {
+            // Fetch location and statuses when status tab is opened
+            fetchCurrentLocation();
             getStatusOptions();
+            getResolutionCategories();
         }
     }, [activeTab]);
 
-    const fetchCurrentLocation = async () => {
-        try {
-            setCurrentLocation({ latitude: 'Fetching...', longitude: 'Fetching...' });
-
-            // Request location permission on Android
-            if (Platform.OS === 'android') {
-                const hasPermission = await PermissionsAndroid.check(
-                    PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-                );
-
-                if (!hasPermission) {
-                    const granted = await PermissionsAndroid.request(
-                        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-                        {
-                            title: 'Location Permission',
-                            message: 'App needs location permission to capture current coordinates.',
-                            buttonPositive: 'OK',
-                        }
-                    );
-
-                    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-                        toast.error('Location permission is required');
-                        return;
-                    }
-                }
-            }
-
-            // Get current position
-            Geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    setCurrentLocation({
-                        latitude: latitude.toString(),
-                        longitude: longitude.toString()
-                    });
-                    toast.success('Location captured successfully');
-                },
-                (error) => {
-                    console.log('Location Error:', error);
-                    toast.error('Could not fetch location: ' + (error.message || 'Unknown error'));
-                    // Fallback to previous location if available
-                    if (currentLocation.latitude === 'Fetching...') {
-                        setCurrentLocation({ latitude: '', longitude: '' });
-                    }
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 15000,
-                    maximumAge: 0
-                }
-            );
-        } catch (error: any) {
-            console.log('Location Exception:', error);
-            toast.error('Location error: ' + (error?.message || 'Unknown'));
-        }
-    };
-
-
-    // Helper function to get location as a Promise (Strict Check)
-    const getLocationPromise = () => {
-        return new Promise<Geolocation.GeoPosition>((resolve, reject) => {
-            Geolocation.getCurrentPosition(
-                (position) => resolve(position),
-                (error) => reject(error),
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0,
-                    forceRequestLocation: true
-                }
-            );
-        });
-    };
-
-    const handleCaptureImage = async () => {
-        const options: any = {
-            mediaType: 'photo',
-            includeBase64: true,
-            quality: 0.7,
-            maxWidth: 1024,
-            maxHeight: 1024,
-            saveToPhotos: false,
-        };
-
-        try {
-            setIsCapturingImage(true);
-            // 1. Check Permissions on Android
-            if (Platform.OS === 'android') {
-                const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
-                const hasCameraPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
-
-                if (!hasPermission || !hasCameraPermission) {
-                    const grantedLoc = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
-                    const grantedCam = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
-
-                    if (grantedLoc !== PermissionsAndroid.RESULTS.GRANTED || grantedCam !== PermissionsAndroid.RESULTS.GRANTED) {
-                        toast.error('Location and Camera permissions are required');
-                        return;
-                    }
-                }
-            }
-
-            // 2. PRE-CHECK: Check if Location Service (GPS) is ON before opening camera
-            try {
-                // Toast to inform user we are checking GPS
-                // toast.info('Verifying GPS status...'); 
-                await getLocationPromise();
-            } catch (error: any) {
-                setAlertConfig({
-                    visible: true,
-                    title: 'Location Required',
-                    message: 'Your Device Location (GPS) is OFF. You must turn it ON to capture evidence.',
-                    type: 'warning',
-                    confirmText: 'Open Settings',
-                    cancelText: 'Cancel',
-                    onConfirm: () => {
-                        setAlertConfig({ ...alertConfig, visible: false, onConfirm: undefined });
-                        Platform.OS === 'ios'
-                            ? Linking.openURL('app-settings:')
-                            : Linking.sendIntent('android.settings.LOCATION_SOURCE_SETTINGS');
-                    }
-                });
-                return;
-            }
-
-            if (typeof launchCamera !== 'function') return;
-            const result = await launchCamera(options);
-
-            if (result.didCancel) {
-                setIsCapturingImage(false);
-                return;
-            } else if (result.errorCode) {
-                setIsCapturingImage(false);
-                setAlertConfig({
-                    visible: true,
-                    title: 'Camera Error',
-                    message: result.errorMessage || 'Failed to open camera',
-                    type: 'error',
-                    shouldCloseParent: false
-                });
-            } else if (result.assets && result.assets[0].base64) {
-                try {
-                    const position = await getLocationPromise();
-
-                    // If successful, save data
-                    const { latitude, longitude } = position.coords;
-
-                    const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
-
-                    console.log("\n\n========== COPY BELOW STRING AND PASTE IN CHROME ==========\n");
-                    console.log(base64Data);
-                    console.log("\n===========================================================\n\n");
-
-                    setCapturedImage(base64Data);
-
-                    setCurrentLocation({
-                        latitude: latitude.toString(),
-                        longitude: longitude.toString()
-                    });
-
-                    // toast.success('Evidence captured successfully with location');
-
-                } catch (locError) {
-                    // Location was turned off DURING capture
-                    setCapturedImage(null); // Discard the image
-                    setCurrentLocation({ latitude: '', longitude: '' });
-
-                    setAlertConfig({
-                        visible: true,
-                        title: 'Capture Failed',
-                        message: 'Location services were turned OFF during the process. The image has been discarded. Please keep GPS ON and try again.',
-                        type: 'error',
-                        shouldCloseParent: false
-                    });
-                }
-            }
-        } catch (error: any) {
-            console.error(error);
-            setAlertConfig({
-                visible: true,
-                title: 'Error',
-                message: 'An unexpected error occurred: ' + (error?.message || 'Unknown'),
-                type: 'error',
-                shouldCloseParent: false
+    const fetchCurrentLocation = () => {
+        // Simulating location fetch
+        // In a real app, use: Geolocation.getCurrentPosition(pos => ...)
+        setCurrentLocation({ latitude: 'Fetching...', longitude: 'Fetching...' });
+        setTimeout(() => {
+            setCurrentLocation({
+                latitude: '22.5726',
+                longitude: '88.3639'
             });
-        } finally {
-            setIsCapturingImage(false);
-        }
+        }, 1500);
+    };
+
+    const handleCaptureImage = () => {
+        setShowCamera(true);
+    };
+
+    const handleCameraCapture = (base64: string, latitude: string, longitude: string) => {
+        setCapturedImage(base64);
+        setCurrentLocation({ latitude, longitude });
+        setShowCamera(false);
+        toast.success('Photo captured with GPS coordinates');
+        console.log('Photo saved with location:', latitude, longitude);
     };
 
     const handleUpdateEngineerStatus = async () => {
-        // Validation same rahega
+        // Validation
+        if (!selectedStatusId) {
+            toast.error('Please select a status');
+            return;
+        }
         if (!statusComments.trim()) {
             toast.error('Remarks are required');
             return;
@@ -530,18 +340,16 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             return;
         }
 
-        // LOADER START
-        setIsSubmitting(true);
-
         try {
             console.log('--- Preparing Engineer Status Update (New API) ---');
 
+            // Clean coordinates and convert to Number (Double) for the new SP
             const cleanLongitude = Number(String(currentLocation.longitude || "0.0").replace(/[^\d.-]/g, ''));
             const cleanLatitude = Number(String(currentLocation.latitude || "0.0").replace(/[^\d.-]/g, ''));
 
             const payload = {
                 ticket_id: Number(ticket?.ticket_id),
-                status_id: 230,
+                status_id: Number(selectedStatusId),
                 remarks: statusComments,
                 evidence_file_path: capturedImage || "",
                 longitude: cleanLongitude,
@@ -551,14 +359,15 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 vendor_id: Number(user?.vendor_id || 0),
             };
 
+            console.log('Final Update Payload (Numbers for Coordinates):', payload);
+
             const response: any = await callAPIWithEnc(
                 'vendor/enginnerUpdateStatusByTicketId',
                 'POST',
                 payload
             );
 
-            // LOADER STOP (Response aane ke baad)
-            setIsSubmitting(false);
+            console.log('Update Response:', response);
 
             if (response?.status == 0) {
                 setAlertConfig({
@@ -580,9 +389,6 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             }
         } catch (e) {
             console.error(e);
-            // LOADER STOP (Error aane par bhi)
-            setIsSubmitting(false);
-
             setAlertConfig({
                 visible: true,
                 title: 'Error',
@@ -594,6 +400,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     };
 
     const handleResolveTicket = async () => {
+        // Use the new engineer status update API if user is a vendor engineer (40) or manager/admin if preferred
         const isEngineer = [30, 40].includes(Number(user?.user_type_id));
 
         if (isEngineer) {
@@ -706,8 +513,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                 <Text style={[styles.navText, activeTab === 'details' && styles.navTextActive]}>Details</Text>
                             </TouchableOpacity>
                             {/* <TouchableOpacity onPress={() => setActiveTab('chat')} style={[styles.navTab, activeTab === 'chat' && styles.navTabActive]}>
-                                <Text style={[styles.navText, activeTab === 'chat' && styles.navTextActive]}>Chat</Text>
-                             </TouchableOpacity> */}
+                    <Text style={[styles.navText, activeTab === 'chat' && styles.navTextActive]}>Chat</Text>
+                </TouchableOpacity> */}
                             {canManageTicket && ticket?.ticket_status <= '210' && user?.user_type_id != 10 && (
                                 <TouchableOpacity onPress={() => setActiveTab('engineer')} style={[styles.navTab, activeTab === 'engineer' && styles.navTabActive]}>
                                     <Text style={[styles.navText, activeTab === 'engineer' && styles.navTextActive]}>Engineer</Text>
@@ -739,18 +546,11 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             {/* Evidence Image Button */}
                                             {ticket?.ticket_image1 && (
                                                 <TouchableOpacity
-                                                    style={[styles.evidenceButton, isFetchingEvidence && styles.buttonDisabled]}
+                                                    style={styles.evidenceButton}
                                                     onPress={getImgAsBase64ByFileName}
-                                                    disabled={isFetchingEvidence}
                                                 >
-                                                    {isFetchingEvidence ? (
-                                                        <ActivityIndicator size="small" color="#fff" />
-                                                    ) : (
-                                                        <Camera size={14} color="#fff" />
-                                                    )}
-                                                    <Text style={styles.evidenceButtonText}>
-                                                        {isFetchingEvidence ? 'Please wait...' : 'View Evidence Image'}
-                                                    </Text>
+                                                    <Camera size={14} color="#fff" />
+                                                    <Text style={styles.evidenceButtonText}>View Evidence Image</Text>
                                                 </TouchableOpacity>
                                             )}
                                         </View>
@@ -825,43 +625,6 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                     <Text style={{ color: '#854d0e', fontWeight: 'bold' }}>⚠ Physical verification pending</Text>
                                                     <Text style={{ color: '#a16207', marginTop: 4 }}>Ticket creator must physically verify the resolution before final closure.</Text>
                                                 </>
-                                            )}
-                                        </View>
-                                    </View>
-                                )}
-
-                                {/* Engineer Evidence */}
-                                {(ticket?.enginner_evidence_path || (ticket?.latitude && ticket?.longitude)) && (
-                                    <View>
-                                        <Text style={styles.sectionTitle}>Engineer Evidence</Text>
-                                        <View style={styles.card}>
-                                            {ticket?.enginner_evidence_path && (
-                                                <TouchableOpacity
-                                                    style={[styles.evidenceButton, isFetchingEngEvidence && styles.buttonDisabled]}
-                                                    onPress={getEngineerEvidenceImage}
-                                                    disabled={isFetchingEngEvidence}
-                                                >
-                                                    {isFetchingEngEvidence ? (
-                                                        <ActivityIndicator size="small" color="#fff" />
-                                                    ) : (
-                                                        <Camera size={14} color="#fff" />
-                                                    )}
-                                                    <Text style={styles.evidenceButtonText}>
-                                                        {isFetchingEngEvidence ? 'Please wait...' : 'View Engineer Evidence'}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            )}
-
-                                            {ticket?.latitude && ticket?.longitude && (
-                                                <View style={{ marginTop: 12 }}>
-                                                    <Text style={[styles.metaLabel, { marginBottom: 4 }]}>Captured Location:</Text>
-                                                    <TouchableOpacity
-                                                        style={{ width: 40, height: 40, justifyContent: 'center' }}
-                                                        onPress={() => openMap(ticket.latitude!, ticket.longitude!)}
-                                                    >
-                                                        <MapPin size={24} color={COLORS.primary} />
-                                                    </TouchableOpacity>
-                                                </View>
                                             )}
                                         </View>
                                     </View>
@@ -951,8 +714,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                             </ScrollView>
                         )}
                         {activeTab === 'status' && (
-                            <ScrollView style={styles.tabContent}
-                                    showsVerticalScrollIndicator={false}>
+                            <ScrollView style={styles.tabContent}>
                                 <Text style={styles.sectionTitle}>Status Management</Text>
                                 {/* Logic simplified from original code for brevity but keeping structure */}
                                 {(user?.user_type_id == '10' && ticket?.ticket_status == '240' && ticket?.ticket_created_user_id == user?.user_id) ||
@@ -991,114 +753,47 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             </View>
                                         )}
 
-                                        {/* Status Selection Dropdown */}
-                                        <View style={{ marginBottom: 16 }}>
 
 
-                                            {/* Status Modal */}
-                                            <Modal visible={isStatusModalVisible} transparent animationType="slide">
-                                                <View style={styles.modalOverlay}>
-                                                    <View style={styles.modalContent}>
-                                                        <View style={styles.modalHeader}>
-                                                            <Text style={styles.modalTitle}>Select New Status</Text>
-                                                            <TouchableOpacity onPress={() => setIsStatusModalVisible(false)}>
-                                                                <X size={24} color={COLORS.text} />
-                                                            </TouchableOpacity>
-                                                        </View>
-                                                        <ScrollView>
-                                                            {statusOptions.map((status) => (
-                                                                <TouchableOpacity
-                                                                    key={status.status_id}
-                                                                    style={[
-                                                                        styles.optionItem,
-                                                                        selectedStatusId == status.status_id && styles.selectedOption
-                                                                    ]}
-                                                                    onPress={() => {
-                                                                        setSelectedStatusId(status.status_id);
-                                                                        setIsStatusModalVisible(false);
-                                                                    }}
-                                                                >
-                                                                    <Text style={[
-                                                                        styles.optionText,
-                                                                        selectedStatusId == status.status_id && styles.selectedOptionText
-                                                                    ]}>
-                                                                        {status.status_name}
-                                                                    </Text>
-                                                                </TouchableOpacity>
-                                                            ))}
-                                                        </ScrollView>
-                                                    </View>
-                                                </View>
-                                            </Modal>
-                                        </View>
-
-                                        {/* Location Fields - Captured from photo */}
+                                        {/* Location Fields - Auto-fetch current location */}
                                         <View style={styles.locationContainer}>
-                                            <Text style={styles.sectionLabel}>GPS Location (Captured from Photo)</Text>
+                                            <Text style={styles.sectionLabel}>Current Location (Auto-captured)</Text>
                                             <View style={styles.locationRow}>
                                                 <View style={styles.locationField}>
                                                     <Text style={styles.inputLabel}>Latitude</Text>
-                                                    <View style={{ position: 'relative', justifyContent: 'center' }}>
-                                                        <TextInput
-                                                            style={[styles.input, styles.disabledInput]}
-                                                            value={isCapturingImage ? 'Fetching...' : currentLocation.latitude}
-                                                            editable={false}
-                                                            placeholder="latitude"
-                                                            placeholderTextColor="#9ca3af"
-                                                        />
-                                                        {isCapturingImage && (
-                                                            <ActivityIndicator
-                                                                size="small"
-                                                                color={COLORS.primary}
-                                                                style={{ position: 'absolute', right: 10 }}
-                                                            />
-                                                        )}
-                                                    </View>
+                                                    <TextInput
+                                                        style={[styles.input, styles.disabledInput]}
+                                                        value={currentLocation.latitude}
+                                                        editable={false}
+                                                        placeholder="Fetching..."
+                                                    />
                                                 </View>
                                                 <View style={styles.locationField}>
                                                     <Text style={styles.inputLabel}>Longitude</Text>
-                                                    <View style={{ position: 'relative', justifyContent: 'center' }}>
-                                                        <TextInput
-                                                            style={[styles.input, styles.disabledInput]}
-                                                            value={isCapturingImage ? 'Fetching...' : currentLocation.longitude}
-                                                            editable={false}
-                                                            placeholder="longitude"
-                                                            placeholderTextColor="#9ca3af"
-                                                        />
-                                                        {isCapturingImage && (
-                                                            <ActivityIndicator
-                                                                size="small"
-                                                                color={COLORS.primary}
-                                                                style={{ position: 'absolute', right: 10 }}
-                                                            />
-                                                        )}
-                                                    </View>
+                                                    <TextInput
+                                                        style={[styles.input, styles.disabledInput]}
+                                                        value={currentLocation.longitude}
+                                                        editable={false}
+                                                        placeholder="Fetching..."
+                                                    />
                                                 </View>
                                             </View>
                                         </View>
 
-                                        {/* Image Capture */}
                                         <View style={styles.imageCaptureContainer}>
                                             <Text style={styles.sectionLabel}>Capture Image</Text>
                                             <View style={styles.imageActions}>
                                                 <TouchableOpacity
-                                                    style={[styles.captureButton, isCapturingImage && styles.buttonDisabled]}
+                                                    style={styles.captureButton}
                                                     onPress={handleCaptureImage}
-                                                    disabled={isCapturingImage}
                                                 >
-                                                    {isCapturingImage ? (
-                                                        <ActivityIndicator size="small" color="#fff" />
-                                                    ) : (
-                                                        <>
-                                                            <Camera size={20} color="#fff" />
-                                                            <Text style={styles.captureButtonText}>
-                                                                {capturedImage ? 'Retake Photo' : 'Take Photo'}
-                                                            </Text>
-                                                        </>
-                                                    )}
+                                                    <Camera size={20} color="#fff" />
+                                                    <Text style={styles.captureButtonText}>
+                                                        {capturedImage ? 'Retake Photo' : 'Take Photo'}
+                                                    </Text>
                                                 </TouchableOpacity>
 
-                                                {capturedImage && !isCapturingImage && (
+                                                {capturedImage && (
                                                     <TouchableOpacity
                                                         style={styles.viewImageButton}
                                                         onPress={() => setShowCapturedImageModal(true)}
@@ -1121,17 +816,167 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             )}
                                         </View>
 
-                                        <Text style={styles.inputLabel}>
-                                            {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Final Closure Comments *' : 'Resolution Comments *'}
-                                        </Text>
-                                        <TextInput
-                                            style={styles.textArea}
-                                            multiline
-                                            numberOfLines={4}
-                                            placeholder="Enter comments..."
-                                            value={statusComments}
-                                            onChangeText={setStatusComments}
-                                        />
+                                        {/* Resolution Category Dropdown */}
+                                        <View style={{ marginBottom: 16 }}>
+                                            <Text style={styles.inputLabel}>Resolution Category</Text>
+                                            <TouchableOpacity
+                                                style={styles.selectButton}
+                                                onPress={() => setIsResolutionCategoryModalVisible(true)}
+                                            >
+                                                <Text style={{ color: selectedResolutionCategoryId ? COLORS.text : COLORS.textSecondary }}>
+                                                    {selectedResolutionCategoryName || 'Select Resolution Category'}
+                                                </Text>
+                                                <ChevronDown size={20} color={COLORS.textSecondary} />
+                                            </TouchableOpacity>
+
+                                            {/* Resolution Category Modal */}
+                                            <Modal visible={isResolutionCategoryModalVisible} transparent animationType="slide">
+                                                <View style={styles.modalOverlay}>
+                                                    <View style={styles.modalContent}>
+                                                        <View style={styles.modalHeader}>
+                                                            <Text style={styles.modalTitle}>Select Resolution Category</Text>
+                                                            <TouchableOpacity onPress={() => setIsResolutionCategoryModalVisible(false)}>
+                                                                <X size={24} color={COLORS.text} />
+                                                            </TouchableOpacity>
+                                                        </View>
+
+                                                        {isLoadingResolutionCategories ? (
+                                                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                                                <ActivityIndicator size="large" color={COLORS.primary} />
+                                                                <Text style={{ marginTop: 10, color: COLORS.textSecondary }}>Loading categories...</Text>
+                                                            </View>
+                                                        ) : (
+                                                            <ScrollView>
+                                                                {resolutionCategories.map((category) => (
+                                                                    <TouchableOpacity
+                                                                        key={category.resolution_category_id}
+                                                                        style={[
+                                                                            styles.optionItem,
+                                                                            selectedResolutionCategoryId == category.resolution_category_id && styles.selectedOption
+                                                                        ]}
+                                                                        onPress={() => {
+                                                                            setSelectedResolutionCategoryId(category.resolution_category_id);
+                                                                            setSelectedResolutionCategoryName(category.resolution_category_text);
+                                                                            setIsResolutionCategoryModalVisible(false);
+
+                                                                            // Reset sub-category selection first
+                                                                            setSelectedSubResolutionCategoryId('');
+                                                                            setSelectedSubResolutionCategoryName('');
+
+                                                                            // Fetch sub-categories only if NOT 'Others'
+                                                                            if (category.resolution_category_text === 'Others') {
+                                                                                setSubResolutionCategories([]);
+                                                                            } else {
+                                                                                console.log('Selected Main Category:', category);
+                                                                                getSubResolutionCategories(category.resolution_category_id);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <Text style={[
+                                                                            styles.optionText,
+                                                                            selectedResolutionCategoryId == category.resolution_category_id && styles.selectedOptionText
+                                                                        ]}>
+                                                                            {category.resolution_category_text}
+                                                                        </Text>
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </ScrollView>
+                                                        )}
+                                                    </View>
+                                                </View>
+                                            </Modal>
+                                        </View>
+
+                                        {/* Sub-Resolution Category Dropdown */}
+
+                                        <View style={{ marginBottom: 16 }}>
+                                            <Text style={styles.inputLabel}>Sub Resolution Category</Text>
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.selectButton,
+                                                    (!selectedResolutionCategoryId || selectedResolutionCategoryName === 'Others') && { opacity: 0.5, backgroundColor: '#F3F4F6' }
+                                                ]}
+                                                onPress={() => {
+                                                    if (subResolutionCategories.length === 0 && !isLoadingSubResolutionCategories) {
+                                                        // Optional: fetch again or just show empty modal?
+                                                        // Let's letting open modal to show "No Data" or just open
+                                                    }
+                                                    setIsSubResolutionCategoryModalVisible(true);
+                                                }}
+                                                disabled={!selectedResolutionCategoryId || isLoadingSubResolutionCategories || selectedResolutionCategoryName === 'Others'}
+                                            >
+                                                {isLoadingSubResolutionCategories ? (
+                                                    <ActivityIndicator size="small" color={COLORS.primary} />
+                                                ) : (
+                                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                                        <Text style={{ color: selectedSubResolutionCategoryId ? COLORS.text : COLORS.textSecondary }}>
+                                                            {selectedSubResolutionCategoryName || 'Select Sub Category'}
+                                                        </Text>
+                                                        <ChevronDown size={20} color={COLORS.textSecondary} />
+                                                    </View>
+                                                )}
+                                            </TouchableOpacity>
+
+                                            <Modal visible={isSubResolutionCategoryModalVisible} transparent animationType="slide">
+                                                <View style={styles.modalOverlay}>
+                                                    <View style={styles.modalContent}>
+                                                        <View style={styles.modalHeader}>
+                                                            <Text style={styles.modalTitle}>Select Sub Category</Text>
+                                                            <TouchableOpacity onPress={() => setIsSubResolutionCategoryModalVisible(false)}>
+                                                                <X size={24} color={COLORS.text} />
+                                                            </TouchableOpacity>
+                                                        </View>
+
+                                                        {subResolutionCategories.length > 0 ? (
+                                                            <ScrollView>
+                                                                {subResolutionCategories.map((sub) => (
+                                                                    <TouchableOpacity
+                                                                        key={sub.resolution_category_id}
+                                                                        style={[
+                                                                            styles.optionItem,
+                                                                            selectedSubResolutionCategoryId == sub.resolution_category_id && styles.selectedOption
+                                                                        ]}
+                                                                        onPress={() => {
+                                                                            setSelectedSubResolutionCategoryId(sub.resolution_category_id);
+                                                                            setSelectedSubResolutionCategoryName(sub.resolution_category_text);
+                                                                            setIsSubResolutionCategoryModalVisible(false);
+                                                                        }}
+                                                                    >
+                                                                        <Text style={[
+                                                                            styles.optionText,
+                                                                            selectedSubResolutionCategoryId == sub.resolution_category_id && styles.selectedOptionText
+                                                                        ]}>
+                                                                            {sub.resolution_category_text}
+                                                                        </Text>
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                            </ScrollView>
+                                                        ) : (
+                                                            <View style={{ padding: 20, alignItems: 'center' }}>
+                                                                <Text style={{ color: COLORS.textSecondary }}>No sub-categories available</Text>
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                </View>
+                                            </Modal>
+                                        </View>
+
+                                        {/* Conditionally render comments only for 'Others' */}
+                                        {selectedResolutionCategoryName === 'Others' && (
+                                            <>
+                                                <Text style={styles.inputLabel}>
+                                                    {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Final Closure Comments *' : 'Resolution Comments *'}
+                                                </Text>
+                                                <TextInput
+                                                    style={styles.textArea}
+                                                    multiline
+                                                    numberOfLines={4}
+                                                    placeholder="Enter comments..."
+                                                    value={statusComments}
+                                                    onChangeText={setStatusComments}
+                                                />
+                                            </>
+                                        )}
 
                                         {/* Rating for User 10 */}
                                         {user?.user_type_id == '10' && ticket?.ticket_status == '240' && (
@@ -1171,7 +1016,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 }
                                             >
                                                 <Text style={styles.buttonText}>
-                                                    {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Close Ticket' : 'Submit'}
+                                                    {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Close Ticket' : 'Resolve Ticket'}
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
@@ -1192,29 +1037,15 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             </View>
 
             {/* Final Closure Modal */}
-            {showFinalClosure && (
-                <FinalClosureModal
-                    ticket={ticket}
-                    onClose={() => setShowFinalClosure(false)}
-                    onFinalClosure={handleFinalClosure}
-                />
-            )}
-
-            {/* Full Screen Loading Modal */}
-            <Modal
-                transparent={true}
-                animationType="fade"
-                visible={isSubmitting}
-                onRequestClose={() => { }} // Empty function prevents closing by back button
-            >
-                <View style={styles.loaderOverlay}>
-                    <View style={styles.loaderBox}>
-                        <ActivityIndicator size="large" color={COLORS.primary || '#2563eb'} />
-                        <Text style={styles.loaderTextMain}>Processing...</Text>
-                        <Text style={styles.loaderTextSub}>Please wait while we update the ticket.</Text>
-                    </View>
-                </View>
-            </Modal>
+            {
+                showFinalClosure && (
+                    <FinalClosureModal
+                        ticket={ticket}
+                        onClose={() => setShowFinalClosure(false)}
+                        onFinalClosure={handleFinalClosure}
+                    />
+                )
+            }
 
             {/* Image Preview Modals */}
             <Modal visible={showImageModal} transparent animationType="fade" onRequestClose={() => setShowImageModal(false)}>
@@ -1257,11 +1088,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 title={alertConfig.title}
                 message={alertConfig.message}
                 type={alertConfig.type}
-                confirmText={alertConfig.confirmText}
-                cancelText={alertConfig.cancelText}
-                onConfirm={alertConfig.onConfirm}
                 onClose={() => {
-                    setAlertConfig({ ...alertConfig, visible: false, onConfirm: undefined });
+                    setAlertConfig({ ...alertConfig, visible: false });
                     if (alertConfig.shouldCloseParent) {
                         onUpdate();
                         onClose();
@@ -1270,15 +1098,17 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             />
 
             {/* Camera Modal */}
-            {showCamera && (
-                <Modal visible={true} animationType="slide" statusBarTranslucent>
-                    <CameraCapture
-                        onCapture={handleCameraCapture}
-                        onClose={() => setShowCamera(false)}
-                    />
-                </Modal>
-            )}
-        </Modal>
+            {
+                showCamera && (
+                    <Modal visible={true} animationType="slide" statusBarTranslucent>
+                        <CameraCapture
+                            onCapture={handleCameraCapture}
+                            onClose={() => setShowCamera(false)}
+                        />
+                    </Modal>
+                )
+            }
+        </Modal >
     );
 };
 
@@ -1697,13 +1527,11 @@ const styles = StyleSheet.create({
     captureButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
         backgroundColor: COLORS?.primary || '#2563eb',
         paddingHorizontal: 16,
         paddingVertical: 10,
         borderRadius: 8,
         gap: 8,
-        minWidth: 140,
     },
     captureButtonText: {
         color: '#fff',
@@ -1752,37 +1580,5 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         paddingVertical: 16,
         fontStyle: 'italic',
-    },
-    // Loader Styles
-    loaderOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)', // Semi-transparent black
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loaderBox: {
-        backgroundColor: '#fff',
-        padding: 24,
-        borderRadius: 16,
-        alignItems: 'center',
-        width: '80%',
-        maxWidth: 300,
-        elevation: 5, // Android shadow
-        shadowColor: '#000', // iOS shadow
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-    },
-    loaderTextMain: {
-        marginTop: 16,
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: COLORS.text,
-    },
-    loaderTextSub: {
-        marginTop: 8,
-        fontSize: 14,
-        color: COLORS.textSecondary,
-        textAlign: 'center',
     },
 });
