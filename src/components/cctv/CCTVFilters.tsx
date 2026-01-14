@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Search, Filter, X, ChevronDown, Check } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
-import { getVendors, getZones } from '../../services/api/cctvApi';
+import { getVendors, getZones, getRegions } from '../../services/api/cctvApi';
 import { User } from '../../types/auth'; // Using auth user type
 import { Vendor, Zone } from '../../types/cctv';
 
@@ -19,6 +19,8 @@ interface CCTVFiltersProps {
     filters: {
         status: string;
         zone: string;
+        region: string;
+        region_name: string;
         vendor: string;
         status_name: string;
         zone_name: string;
@@ -29,6 +31,7 @@ interface CCTVFiltersProps {
     totalCameras: number;
     user: User | null;
     hideSearch?: boolean;
+    lockVendor?: boolean;
 }
 
 export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
@@ -37,10 +40,13 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
     totalCameras,
     user,
     hideSearch = false,
+    lockVendor = false,
 }) => {
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [zones, setZones] = useState<Zone[]>([]);
+    const [regions, setRegions] = useState<any[]>([]);
     const [activeModal, setActiveModal] = useState<string | null>(null);
+    const isZoneDisabled = filters.region === '0';
 
     const statuses = [
         { status_id: '10', status_name: 'Offline' },
@@ -52,20 +58,41 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
         const fetchOptions = async () => {
             try {
                 const vendorData = await getVendors();
-                const zoneData = await getZones();
+                const regionData = await getRegions();
                 setVendors(vendorData?.data || []);
-                setZones(zoneData?.data || []);
+                setRegions(regionData?.data || []);
             } catch (error) {
-                console.error("Failed to load filter options", error);
+                console.error("Failed to load initial filter options", error);
             }
         };
         fetchOptions();
     }, []);
 
+    // Dependent Zone Fetching
+    useEffect(() => {
+        const fetchFilteredZones = async () => {
+            try {
+                // Fetch zones based on selected region (if region is '0', it gets all zones)
+                const zoneData = await getZones(filters.region !== '0' ? filters.region : undefined);
+                setZones(zoneData?.data || []);
+            } catch (error) {
+                console.error("Failed to fetch zones for region", error);
+            }
+        };
+        fetchFilteredZones();
+    }, [filters.region]);
+
     const handleFilterUpdate = (key: string, value: string, name?: string) => {
+        if (key === 'vendor' && lockVendor) return;
         const newFilters = { ...filters, [key]: value };
 
         if (key === 'vendor') newFilters.vendor_name = name || '';
+        if (key === 'region') {
+            newFilters.region_name = name || '';
+            // Reset zone when region changes
+            newFilters.zone = '0';
+            newFilters.zone_name = '';
+        }
         if (key === 'zone') newFilters.zone_name = name || '';
         if (key === 'status') newFilters.status_name = name || '';
 
@@ -77,10 +104,12 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
         onFilterChange({
             status: '0',
             zone: '0',
-            vendor: '0',
+            region: '0',
+            vendor: lockVendor ? filters.vendor : '0',
             status_name: '',
             zone_name: '',
-            vendor_name: '',
+            region_name: '',
+            vendor_name: lockVendor ? filters.vendor_name : '',
             search: '',
         });
     };
@@ -167,7 +196,7 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
             )}
 
             {/* Filter Chips / Dropdowns */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
+            <View style={styles.filtersContainer}>
                 {/* Status Filter */}
                 <TouchableOpacity
                     style={[styles.filterChip, filters.status !== '0' && styles.activeFilterChip]}
@@ -176,35 +205,69 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
                     <Text style={[styles.filterChipText, filters.status !== '0' && styles.activeFilterChipText]}>
                         {filters.status === '0' ? 'Status' : filters.status_name || 'Status'}
                     </Text>
-                    <ChevronDown size={16} color={filters.status !== '0' ? COLORS.primary : COLORS.textSecondary} />
+                    <ChevronDown size={14} color={filters.status !== '0' ? COLORS.primary : COLORS.textSecondary} />
                 </TouchableOpacity>
 
-                {/* Zone Filter */}
+                {/* DRO Filter */}
                 <TouchableOpacity
-                    style={[styles.filterChip, filters.zone !== '0' && styles.activeFilterChip]}
-                    onPress={() => setActiveModal('Zone')}
+                    style={[styles.filterChip, filters.region !== '0' && styles.activeFilterChip]}
+                    onPress={() => setActiveModal('DRO')}
                 >
-                    <Text style={[styles.filterChipText, filters.zone !== '0' && styles.activeFilterChipText]}>
-                        {filters.zone === '0' ? 'Zone' : filters.zone_name || 'Zone'}
+                    <Text style={[styles.filterChipText, filters.region !== '0' && styles.activeFilterChipText]}>
+                        {filters.region === '0' ? 'DRO' : filters.region_name || 'DRO'}
                     </Text>
-                    <ChevronDown size={16} color={filters.zone !== '0' ? COLORS.primary : COLORS.textSecondary} />
+                    <ChevronDown size={14} color={filters.region !== '0' ? COLORS.primary : COLORS.textSecondary} />
                 </TouchableOpacity>
 
-                {/* Vendor Filter - Only mock if admin, otherwise locked or hidden logic handled by parent */}
+                {/* Police Station Filter */}
                 <TouchableOpacity
-                    style={[styles.filterChip, filters.vendor !== '0' && styles.activeFilterChip]}
-                    onPress={() => setActiveModal('Vendor')}
+                    style={[
+                        styles.filterChip,
+                        filters.zone !== '0' && styles.activeFilterChip,
+                        isZoneDisabled && styles.disabledFilterChip
+                    ]}
+                    onPress={() => !isZoneDisabled && setActiveModal('Police Station')}
+                    disabled={isZoneDisabled}
                 >
-                    <Text style={[styles.filterChipText, filters.vendor !== '0' && styles.activeFilterChipText]}>
+                    <Text style={[
+                        styles.filterChipText,
+                        filters.zone !== '0' && styles.activeFilterChipText,
+                        isZoneDisabled && styles.disabledFilterChipText
+                    ]}>
+                        {filters.zone === '0' ? 'Police Station' : filters.zone_name || 'Police Station'}
+                    </Text>
+                    {!isZoneDisabled && (
+                        <ChevronDown size={14} color={filters.zone !== '0' ? COLORS.primary : COLORS.textSecondary} />
+                    )}
+                </TouchableOpacity>
+
+                {/* Vendor Filter */}
+                <TouchableOpacity
+                    style={[
+                        styles.filterChip,
+                        filters.vendor !== '0' && styles.activeFilterChip,
+                        lockVendor && styles.lockedFilterChip
+                    ]}
+                    onPress={() => !lockVendor && setActiveModal('Vendor')}
+                    disabled={lockVendor}
+                >
+                    <Text style={[
+                        styles.filterChipText,
+                        filters.vendor !== '0' && styles.activeFilterChipText,
+                        lockVendor && styles.lockedFilterChipText
+                    ]}>
                         {filters.vendor === '0' ? 'Vendor' : filters.vendor_name || 'Vendor'}
                     </Text>
-                    <ChevronDown size={16} color={filters.vendor !== '0' ? COLORS.primary : COLORS.textSecondary} />
+                    {!lockVendor && (
+                        <ChevronDown size={14} color={filters.vendor !== '0' ? COLORS.primary : COLORS.textSecondary} />
+                    )}
                 </TouchableOpacity>
-            </ScrollView>
+            </View>
 
             {/* Modals */}
             {renderDropdownModal('Status', statuses, 'status_id', 'status_name', filters.status, (id, name) => handleFilterUpdate('status', id, name))}
-            {renderDropdownModal('Zone', zones, 'zone_id', 'zone_name', filters.zone, (id, name) => handleFilterUpdate('zone', id, name))}
+            {renderDropdownModal('Police Station', zones, 'zone_id', 'zone_name', filters.zone, (id, name) => handleFilterUpdate('zone', id, name))}
+            {renderDropdownModal('DRO', regions, 'region_id', 'region_name', filters.region, (id, name) => handleFilterUpdate('region', id, name))}
             {renderDropdownModal('Vendor', vendors, 'vendor_id', 'vendor_name', filters.vendor, (id, name) => handleFilterUpdate('vendor', id, name))}
         </View>
     );
@@ -258,20 +321,21 @@ const styles = StyleSheet.create({
         height: 40,
         color: COLORS.textPrimary,
     },
-    filtersScroll: {
+    filtersContainer: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: SPACING.s,
     },
     filterChip: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: COLORS.background,
-        paddingHorizontal: SPACING.m,
-        paddingVertical: SPACING.s,
-        borderRadius: BORDER_RADIUS.l,
+        paddingHorizontal: SPACING.s,
+        paddingVertical: 6,
+        borderRadius: BORDER_RADIUS.m,
         borderWidth: 1,
         borderColor: COLORS.border,
-        marginRight: SPACING.s,
-        gap: SPACING.xs,
+        gap: 4,
     },
     activeFilterChip: {
         borderColor: COLORS.primary,
@@ -284,6 +348,23 @@ const styles = StyleSheet.create({
     activeFilterChipText: {
         color: COLORS.primary,
         fontWeight: '500',
+    },
+    lockedFilterChip: {
+        backgroundColor: '#f3f4f6',
+        borderColor: '#e5e7eb',
+        opacity: 0.8,
+    },
+    lockedFilterChipText: {
+        color: '#6b7280',
+        fontWeight: '500',
+    },
+    disabledFilterChip: {
+        backgroundColor: '#f9fafb',
+        borderColor: '#f1f5f9',
+        opacity: 0.6,
+    },
+    disabledFilterChipText: {
+        color: '#9ca3af',
     },
     // Modal Styles
     modalOverlay: {

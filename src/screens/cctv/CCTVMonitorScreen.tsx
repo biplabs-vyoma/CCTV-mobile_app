@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { CCTVDevice } from '../../types/cctv';
 import { getCCtvMonitoringList } from '../../services/api/cctvApi';
 import { CCTVFilters } from '../../components/cctv/CCTVFilters';
-import { AddCameraModal } from '../../components/cctv/AddCameraModal';
+// import { AddCameraModal } from '../../components/cctv/AddCameraModal';
 import { NetworkDiagnosticsModal } from '../../components/cctv/NetworkDiagnosticsModal';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { Plus, Activity, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -35,16 +35,19 @@ export const CCTVMonitorScreen = () => {
     const [filters, setFilters] = useState({
         status: '0',
         zone: '0',
-        vendor: '0',
+        region: '0',
+        vendor: user?.vendor_id ? user.vendor_id.toString() : '0',
         status_name: '',
         zone_name: '',
-        vendor_name: '',
+        region_name: '',
+        vendor_name: user?.vendor_name || '',
         search: '',
     });
 
     // Permissions
     const canAddCamera = user?.user_type_id?.toString() === '20'; // Vendor Admin
     const canRunDiagnostics = [100, 20, 40].includes(Number(user?.user_type_id));
+    const isVendorLocked = !!user?.vendor_id;
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -55,10 +58,13 @@ export const CCTVMonitorScreen = () => {
             const response = await getCCtvMonitoringList(
                 filters.status,
                 filters.zone,
+                filters.region,
                 effectiveVendorId ? effectiveVendorId.toString() : null,
                 user?.user_id,
                 user?.user_type_id
             );
+
+            console.log('CCTV List Response:', response);
             setCCTVsData(response?.data || []);
         } catch (error) {
             console.error(error);
@@ -83,7 +89,8 @@ export const CCTVMonitorScreen = () => {
             const searchLower = filters.search.toLowerCase();
             result = result.filter(c =>
                 c.cctv_name?.toLowerCase().includes(searchLower) ||
-                c.cctv_location_address?.toLowerCase().includes(searchLower)
+                c.cctv_location_address?.toLowerCase().includes(searchLower) ||
+                c.cctv_serial_number?.toLowerCase().includes(searchLower)
             );
         }
 
@@ -164,7 +171,7 @@ export const CCTVMonitorScreen = () => {
             <View style={styles.topBar}>
                 <View>
                     <Text style={styles.screenTitle}>CCTV Monitoring</Text>
-                    <Text style={styles.screenSubtitle}>Monitor and manage all CCTV devices across Kolkata</Text>
+                    {/* <Text style={styles.screenSubtitle}>Monitor and manage all CCTV devices across Kolkata</Text> */}
                 </View>
                 {canAddCamera && (
                     <TouchableOpacity style={styles.addButton} onPress={() => setShowAddModal(true)}>
@@ -179,6 +186,7 @@ export const CCTVMonitorScreen = () => {
                 onFilterChange={setFilters}
                 totalCameras={filteredData?.length || 0}
                 user={user}
+                lockVendor={isVendorLocked}
             />
 
             {isLoading && !refreshing ? (
@@ -227,19 +235,19 @@ export const CCTVMonitorScreen = () => {
             )}
 
             {/* Modals */}
-            {showAddModal && (
+            {/* {showAddModal && (
                 <AddCameraModal
                     onClose={() => setShowAddModal(false)}
                     onSubmitSuccess={onRefresh}
                 />
-            )}
+            )} */}
 
-            {selectedCameraForDiagnostics && (
+            {/* {selectedCameraForDiagnostics && (
                 <NetworkDiagnosticsModal
                     camera={selectedCameraForDiagnostics}
                     onClose={() => setSelectedCameraForDiagnostics(null)}
                 />
-            )}
+            )} */}
         </View>
     );
 };
@@ -305,6 +313,10 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: SPACING.s,
     },
+    cardTitleContainer: {
+        flex: 1,
+        marginRight: SPACING.s,
+    },
     cardTitle: {
         fontSize: FONT_SIZES.m,
         fontWeight: '600',
@@ -328,9 +340,12 @@ const styles = StyleSheet.create({
         width: 80,
     },
     value: {
+        flex: 1,
         fontSize: FONT_SIZES.s,
         color: COLORS?.textPrimary || '#1f2937',
         fontWeight: '500',
+        textAlign: 'right',
+        marginLeft: SPACING.s,
     },
     cardFooter: {
         flexDirection: 'row',

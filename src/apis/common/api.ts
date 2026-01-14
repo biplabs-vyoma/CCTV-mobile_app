@@ -8,13 +8,21 @@ const API_URL = BASE_URL || 'https://api.example.com/';
 
 export const encryptData = async (data: any) => {
     try {
-        const response = await fetch(`${API_URL}security/encrypt`, {
+        const url = `${API_URL}security/encrypt`;
+        console.log(`[ENCRYPT_CALL] ${url}`);
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify(data),
         });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Encryption failed with status ${response.status}:`, errorText.slice(0, 200));
+            return null;
+        }
 
         const result = await response.json();
         return result.data;
@@ -26,17 +34,24 @@ export const encryptData = async (data: any) => {
 
 export const decryptData = async (data: string) => {
     try {
+        const url = `${API_URL}security/decrypt`;
         const raw = JSON.stringify({
             enc_data: data,
         });
 
-        const response = await fetch(`${API_URL}security/decrypt`, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: raw,
         });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Decryption failed with status ${response.status}:`, errorText.slice(0, 200));
+            return null;
+        }
 
         const result = await response.json();
         return result?.data;
