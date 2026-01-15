@@ -39,6 +39,28 @@ const convertDMYtoYMD = (dateString: string) => {
     return `${parts[2].trim()}-${parts[1].trim()}-${parts[0].trim()}`;
 };
 
+const getDateMinusOneMonth = (dateString: string) => {
+    if (!dateString) return '';
+    try {
+        const parts = dateString.split('-');
+        if (parts.length !== 3) return dateString;
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+        const year = parseInt(parts[2], 10);
+
+        const date = new Date(year, month, day);
+        date.setMonth(date.getMonth() - 1);
+
+        const d = String(date.getDate()).padStart(2, '0');
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const y = date.getFullYear();
+        return `${d}-${m}-${y}`;
+    } catch (e) {
+        console.error('Error calculating date minus one month:', e);
+        return dateString;
+    }
+};
+
 export const TicketQueueScreen: React.FC = () => {
     const auth = useAuth();
     const user = auth?.user;
@@ -51,6 +73,9 @@ export const TicketQueueScreen: React.FC = () => {
     const disableStatusFilter = params?.disableStatusFilter;
     const ticketNumber = params?.ticketNumber;
     const ticketDate = params?.ticketDate;
+
+    console.log('params', params);
+
 
     const [activeTab, setActiveTab] = useState<'details' | 'engineer' | 'status' | 'chat'>('details');
     const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -66,6 +91,9 @@ export const TicketQueueScreen: React.FC = () => {
         message: '',
         type: 'info' as 'info' | 'success' | 'error' | 'warning'
     });
+
+    console.log('ticketRecentActivity', ticketRecentActivity);
+
 
     const [filters, setFilters] = useState({
         status_id: '0',
@@ -219,8 +247,8 @@ export const TicketQueueScreen: React.FC = () => {
                     priority_name: '',
                     vendor_name: '',
                     search: ticketNumber || '', // Set search to ticket number from notification
-                    start_date: ticketDate || '', // Set start date from notification
-                    end_date: ticketDate || '', // Set end date same as start date
+                    start_date: ticketDate ? getDateMinusOneMonth(ticketDate) : '', // Set start date to 1 month before notification
+                    end_date: ticketDate || '', // Set end date to notification date
                     category_id: '0',
                     category_name: '',
                 };
@@ -228,10 +256,8 @@ export const TicketQueueScreen: React.FC = () => {
                 setTicketRecentActivity(null);
                 setHasSearched(false);
 
-                // Auto-search when coming from notification with ticket details
-                if (ticketNumber && ticketDate) {
-                    fetchGetTicketDetailsListByUser(newFilters, true);
-                }
+                // Auto-search when coming from notification or stats card
+                fetchGetTicketDetailsListByUser(newFilters, true);
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,6 +269,8 @@ export const TicketQueueScreen: React.FC = () => {
         setRefreshing(true);
         fetchGetTicketDetailsListByUser();
     }, [fetchGetTicketDetailsListByUser]);
+
+
 
     const filteredTickets = useMemo(() => {
         const list = ticketRecentActivity || [];
@@ -327,6 +355,7 @@ export const TicketQueueScreen: React.FC = () => {
         };
 
         setSelectedTicket(ticket);
+        setActiveTab('details'); // Always default to Details tab when opening modal
         setTicketDescAndTimelineInfo(null); // Reset to trigger loading state
         getTicketTimelineInfo();
     };

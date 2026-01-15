@@ -13,7 +13,7 @@ import { useAuth } from '../../context/AuthContext';
 import { CCTVDevice } from '../../types/cctv';
 import { getCCtvMonitoringList } from '../../services/api/cctvApi';
 import { CCTVFilters } from '../../components/cctv/CCTVFilters';
-import { AddCameraModal } from '../../components/cctv/AddCameraModal';
+// import { AddCameraModal } from '../../components/cctv/AddCameraModal';
 import { NetworkDiagnosticsModal } from '../../components/cctv/NetworkDiagnosticsModal';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { Plus, Activity, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -235,19 +235,19 @@ export const CCTVMonitorScreen = () => {
             )}
 
             {/* Modals */}
-            {showAddModal && (
+            {/* {showAddModal && (
                 <AddCameraModal
                     onClose={() => setShowAddModal(false)}
                     onSubmitSuccess={onRefresh}
                 />
-            )}
+            )} */}
 
-            {selectedCameraForDiagnostics && (
+            {/* {selectedCameraForDiagnostics && (
                 <NetworkDiagnosticsModal
                     camera={selectedCameraForDiagnostics}
                     onClose={() => setSelectedCameraForDiagnostics(null)}
                 />
-            )}
+            )} */}
         </View>
     );
 };

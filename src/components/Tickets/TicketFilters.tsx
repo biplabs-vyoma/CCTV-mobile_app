@@ -140,6 +140,13 @@ const CustomDatePicker = ({ value, onChange, placeholder, minDate, maxDate }: an
     const [showMonthPicker, setShowMonthPicker] = useState(false);
     const [showYearPicker, setShowYearPicker] = useState(false);
 
+    // Sync internal state when value prop changes externally
+    useEffect(() => {
+        const newDate = parseFormattedDate(value);
+        setSelectedDate(newDate);
+        setViewDate(newDate);
+    }, [value]);
+
     // Generate years for picker (10 years back and forth)
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 21 }, (_, i) => currentYear - 10 + i);
