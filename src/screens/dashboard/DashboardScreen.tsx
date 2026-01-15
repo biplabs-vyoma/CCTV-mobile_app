@@ -85,7 +85,7 @@ export const DashboardScreen = () => {
                             icon={Activity}
                             color="green"
                             style={{ flex: 1, marginBottom: 0 }}
-                            onPress={() => navigation.navigate('Tickets', { sid: '230', disableStatusFilter: true, timestamp: Date.now() })}
+                            onPress={() => navigation.navigate('Tickets', { sid: '230', fromDashboard: true, disableStatusFilter: true, timestamp: Date.now() })}
                         />
                     </View>
                     <View style={styles.col}>
@@ -97,7 +97,7 @@ export const DashboardScreen = () => {
                             icon={ClipboardList}
                             color="blue"
                             style={{ flex: 1, marginBottom: 0 }}
-                            onPress={() => navigation.navigate('Tickets', { sid: '220', disableStatusFilter: true, timestamp: Date.now() })}
+                            onPress={() => navigation.navigate('Tickets', { sid: '220', fromDashboard: true, disableStatusFilter: true, timestamp: Date.now() })}
                         />
                     </View>
                 </View>

@@ -36,12 +36,15 @@ const SearchableSelect = ({
     valueKey,
     placeholder,
     disabled = false,
+    showAllOption = true,
 }: any) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
     const safeOptions = Array.isArray(options) ? options : [];
-    const fullOptions = [{ [valueKey]: allOptionValue, [labelKey]: allOptionLabel }, ...safeOptions];
+    const fullOptions = showAllOption
+        ? [{ [valueKey]: allOptionValue, [labelKey]: allOptionLabel }, ...safeOptions]
+        : safeOptions;
 
     const filteredOptions = fullOptions.filter((option) =>
         option[labelKey]?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -550,10 +553,9 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                     onChange={(value: string) => handleFilterUpdate('status', value)}
                     labelKey="status_name"
                     valueKey="status_id"
-                    allOptionLabel="Select Status"
-                    allOptionValue=""
                     placeholder="Select Status"
                     disabled={disableStatusFilter}
+                    showAllOption={false}
                 />
             </View>
 

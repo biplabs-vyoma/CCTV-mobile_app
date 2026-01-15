@@ -111,7 +111,6 @@ export const TicketQueueScreen: React.FC = () => {
     const [hasSearched, setHasSearched] = useState(false);
 
 
-    console.log('filters', filters);
 
     const fetchGetTicketDetailsListByUser = useCallback(async (overrideFilters?: any, isAutoSearch: boolean = false) => {
         // Check if overrideFilters is a valid filter object and not a React event object
@@ -175,7 +174,7 @@ export const TicketQueueScreen: React.FC = () => {
                 user_id: Number(user?.user_id),
                 user_type_id: Number(user?.user_type_id),
                 severity_id: currentFilters.priority_id,
-                vendor_id: currentFilters.vendor_id,
+                vendor_id: String(user?.vendor_id),
                 start_date: currentFilters.start_date,
                 end_date: currentFilters.end_date,
                 category_id: Number(currentFilters.category_id || 0),
@@ -219,8 +218,10 @@ export const TicketQueueScreen: React.FC = () => {
     }, [user, filters]);
 
     useEffect(() => {
+        const fromDashboard = params?.fromDashboard;
+
         if (statusID !== undefined) {
-            if (statusID === '0') {
+            if (statusID === '0' && !fromDashboard) {
                 // Perform a FULL reset when clicking the tab directly
                 setFilters({
                     status_id: '0',
@@ -238,30 +239,32 @@ export const TicketQueueScreen: React.FC = () => {
                 setTicketRecentActivity(null);
                 setHasSearched(false);
             } else {
-                // When coming from stats cards or notifications, reset other filters but keep the status
+                // When coming from stats cards, notifications, or dashboard
                 const newFilters = {
                     status_id: statusID || '0',
-                    priority_id: '0',
-                    vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
+                    priority_id: fromDashboard ? '' : '0',
+                    vendor_id: fromDashboard ? '0' : (isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0'),
                     status_name: '',
                     priority_name: '',
                     vendor_name: '',
-                    search: ticketNumber || '', // Set search to ticket number from notification
-                    start_date: ticketDate ? getDateMinusOneMonth(ticketDate) : '', // Set start date to 1 month before notification
-                    end_date: ticketDate || '', // Set end date to notification date
-                    category_id: '0',
+                    search: fromDashboard ? '' : (ticketNumber || ''),
+                    start_date: (fromDashboard || !ticketDate) ? '' : getDateMinusOneMonth(ticketDate),
+                    end_date: (fromDashboard || !ticketDate) ? '' : ticketDate,
+                    category_id: fromDashboard ? '' : '0',
                     category_name: '',
                 };
                 setFilters(newFilters);
                 setTicketRecentActivity(null);
                 setHasSearched(false);
 
-                // Auto-search when coming from notification or stats card
-                fetchGetTicketDetailsListByUser(newFilters, true);
+                // Auto-search only if NOT coming from dashboard
+                if (!fromDashboard) {
+                    fetchGetTicketDetailsListByUser(newFilters, true);
+                }
             }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [statusID, ticketNumber, ticketDate, params?.timestamp]);
+    }, [statusID, ticketNumber, ticketDate, params?.timestamp, params?.fromDashboard]);
 
     // REMOVED: Initial fetch on mount useEffect
 

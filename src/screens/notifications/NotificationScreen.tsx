@@ -277,6 +277,7 @@ export const NotificationScreen = () => {
             sid: alert.status_id,
             ticketNumber: alert.ticket_number,
             ticketDate: alert.ticket_date,
+            disableStatusFilter: true,
             timestamp: Date.now(), // Force refresh on every click
         });
     };
@@ -601,4 +602,3 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 });
-

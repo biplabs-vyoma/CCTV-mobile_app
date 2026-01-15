@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert, Platform, PermissionsAndroid } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, ActivityIndicator, Alert, Platform, PermissionsAndroid, Modal } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
-import { X, Camera as CameraIcon } from 'lucide-react-native';
-import Geolocation from '@react-native-community/geolocation';
+import { X, Camera as CameraIcon, CheckCircle } from 'lucide-react-native';
+import Geolocation from 'react-native-geolocation-service';
 
 const COLORS = {
     primary: '#2563eb',
@@ -54,22 +54,22 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
     const requestLocationPermission = async () => {
         if (Platform.OS === 'android') {
             try {
-                const granted = await PermissionsAndroid.request(
+                // Request both Fine and Coarse location
+                const granted = await PermissionsAndroid.requestMultiple([
                     PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-                    {
-                        title: 'Location Permission Required',
-                        message: 'GPS location is required to save photos. Please enable location access.',
-                        buttonNegative: 'Cancel',
-                        buttonPositive: 'OK',
-                    }
-                );
-                return granted === PermissionsAndroid.RESULTS.GRANTED;
+                    PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+                ]);
+
+                const isFineGranted = granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+                const isCoarseGranted = granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+
+                return isFineGranted || isCoarseGranted;
             } catch (err) {
                 console.warn('Location permission error:', err);
                 return false;
             }
         }
-        return true; // iOS handles permissions differently
+        return true;
     };
 
     const takePhoto = async () => {
@@ -98,106 +98,71 @@ export const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onClose
                 flash: 'off',
             });
 
-            // Read file and convert to base64
+            // Processing Image
             const RNFS = require('react-native-fs');
             const base64 = await RNFS.readFile(photo.path, 'base64');
             const base64Data = `data:image/jpeg;base64,${base64}`;
 
+            // GPS Retrieval
             // Get current GPS location (MANDATORY) with fallback strategy
-            console.log('Attempting to get GPS location with high accuracy...');
+            console.log('Attempting to get GPS location with high accuracy (v2)...');
 
-            const getLocationWithFallback = () => {
-                // First attempt: High accuracy with shorter timeout
+            if (!Geolocation) {
+                console.error('Geolocation module is NOT loaded!');
+                Alert.alert('System Error', 'Geolocation provider is missing. Please restart the app.');
+                setIsCapturing(false);
+                return;
+            }
+
+            const getGPS = async () => {
+                console.log('Step 1: Configuring Geolocation...');
+                try {
+                    Geolocation.setRNConfiguration({
+                        skipPermissionRequests: false,
+                        authorizationLevel: 'whenInUse',
+                        locationProvider: 'auto',
+                    });
+                } catch (e) {
+                    console.warn('Config failed:', e);
+                }
+
+                console.log('Step 2: Starting getCurrentPosition...');
                 Geolocation.getCurrentPosition(
                     (position) => {
-                        console.log('GPS position received (high accuracy):', position);
-                        const latitude = position.coords.latitude.toString();
-                        const longitude = position.coords.longitude.toString();
-                        console.log('GPS captured - Lat:', latitude, 'Long:', longitude);
+                        console.log('Step 3: Success! Position received:', JSON.stringify(position));
+                        const { latitude, longitude } = position.coords;
 
-                        // Only save if we have valid coordinates
-                        if (latitude && longitude && latitude !== '0' && longitude !== '0') {
-                            console.log('Valid GPS coordinates, saving photo...');
-                            onCapture(base64Data, latitude, longitude);
+                        if (latitude && longitude) {
+                            // Call onCapture immediately
+                            onCapture(base64Data, latitude.toString(), longitude.toString());
                             onClose();
                         } else {
-                            console.error('Invalid GPS coordinates received:', latitude, longitude);
-                            Alert.alert(
-                                'GPS Error',
-                                'Could not get valid GPS coordinates. Photo cannot be saved.',
-                                [{ text: 'OK' }]
-                            );
+                            console.error('Step 3 Error: Coordinates are null/undefined');
+                            Alert.alert('GPS Error', 'Invalid coordinates received.');
                             setIsCapturing(false);
                         }
                     },
                     (error) => {
-                        console.log('High accuracy GPS failed, trying lower accuracy fallback...');
-                        console.error('High accuracy error:', error.code, error.message);
+                        console.error('Step 3 Error: Position failed', error.code, error.message);
+                        let msg = 'Could not get GPS. Please ensure GPS is ON and you are in an open area.';
+                        if (error.code === 1) msg = 'Location permission denied.';
+                        if (error.code === 2) msg = 'GPS signal not found. Please move to an open area.';
+                        if (error.code === 3) msg = 'GPS request timed out.';
 
-                        // Fallback: Try with lower accuracy (faster)
-                        Geolocation.getCurrentPosition(
-                            (position) => {
-                                console.log('GPS position received (lower accuracy):', position);
-                                const latitude = position.coords.latitude.toString();
-                                const longitude = position.coords.longitude.toString();
-                                console.log('GPS captured (fallback) - Lat:', latitude, 'Long:', longitude);
-
-                                // Only save if we have valid coordinates
-                                if (latitude && longitude && latitude !== '0' && longitude !== '0') {
-                                    console.log('Valid GPS coordinates from fallback, saving photo...');
-                                    onCapture(base64Data, latitude, longitude);
-                                    onClose();
-                                } else {
-                                    console.error('Invalid GPS coordinates from fallback:', latitude, longitude);
-                                    Alert.alert(
-                                        'GPS Error',
-                                        'Could not get valid GPS coordinates. Photo cannot be saved.',
-                                        [{ text: 'OK' }]
-                                    );
-                                    setIsCapturing(false);
-                                }
-                            },
-                            (fallbackError) => {
-                                console.error('Fallback GPS also failed');
-                                console.error('GPS error code:', fallbackError.code);
-                                console.error('GPS error message:', fallbackError.message);
-                                console.error('GPS full error:', JSON.stringify(fallbackError));
-                                setIsCapturing(false);
-
-                                let errorMessage = 'Could not get GPS location. ';
-                                if (fallbackError.code === 1) {
-                                    errorMessage += 'Location permission denied.';
-                                } else if (fallbackError.code === 2) {
-                                    errorMessage += 'Location unavailable. Please ensure GPS is enabled.';
-                                } else if (fallbackError.code === 3) {
-                                    errorMessage += 'Location request timed out. Please try again in an area with better GPS signal.';
-                                } else {
-                                    errorMessage += fallbackError.message || 'Unknown error.';
-                                }
-
-                                // Show error - photo will NOT be saved
-                                Alert.alert(
-                                    'GPS Required',
-                                    errorMessage + ' Photo cannot be saved without GPS data.',
-                                    [{ text: 'OK' }]
-                                );
-                            },
-                            {
-                                enableHighAccuracy: false,  // Lower accuracy, faster
-                                timeout: 10000,  // 10 seconds
-                                maximumAge: 5000   // Can use recent cached location
-                            }
-                        );
+                        Alert.alert('GPS Required', msg);
+                        setIsCapturing(false);
                     },
                     {
-                        enableHighAccuracy: true,  // Try high accuracy first
-                        timeout: 8000,  // 8 seconds for first attempt
-                        maximumAge: 0   // Don't use cached location for first attempt
+                        enableHighAccuracy: true,
+                        timeout: 15000,
+                        maximumAge: 10000,
+                        forceRequestLocation: true,
+                        showLocationDialog: true,
                     }
                 );
             };
 
-            getLocationWithFallback();
+            getGPS();
         } catch (error: any) {
             console.error('Photo capture error:', error);
             Alert.alert('Capture Error', error?.message || 'Failed to capture photo');
