@@ -242,7 +242,7 @@ export const TicketQueueScreen: React.FC = () => {
                 // When coming from stats cards, notifications, or dashboard
                 const newFilters = {
                     status_id: statusID || '0',
-                    priority_id: fromDashboard ? '' : '0',
+                    priority_id: fromDashboard ? '0' : '0',
                     vendor_id: fromDashboard ? '0' : (isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0'),
                     status_name: '',
                     priority_name: '',
@@ -250,7 +250,7 @@ export const TicketQueueScreen: React.FC = () => {
                     search: fromDashboard ? '' : (ticketNumber || ''),
                     start_date: (fromDashboard || !ticketDate) ? '' : getDateMinusOneMonth(ticketDate),
                     end_date: (fromDashboard || !ticketDate) ? '' : ticketDate,
-                    category_id: fromDashboard ? '' : '0',
+                    category_id: fromDashboard ? '0' : '0',
                     category_name: '',
                 };
                 setFilters(newFilters);

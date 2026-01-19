@@ -120,12 +120,14 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     const [isCapturingImage, setIsCapturingImage] = useState(false); // New State for Image Capture Loader
     const [isFetchingEvidence, setIsFetchingEvidence] = useState(false);
     const [isFetchingEngEvidence, setIsFetchingEngEvidence] = useState(false);
+    const [loadingEvidenceFilename, setLoadingEvidenceFilename] = useState<string | null>(null);
 
     const canManageTicket = [10, 20, 30, 40, 100].includes(Number(user?.user_type_id));
     const isTicketCreator = user?.user_id == ticket.ticket_created_user_id;
     const canFinalClose = isTicketCreator && ticket?.ticket_status == '220';
 
     console.log("Ticket Data:", ticketComments);
+    console.log("Ticket:", ticket);
 
     // Update loading state when ticketComments changes
     useEffect(() => {
@@ -264,8 +266,10 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
     };
 
-    const getEngineerEvidenceImage = async () => {
-        if (!ticket?.enginner_evidence_path) {
+    const getEngineerEvidenceImage = async (filenameOverride?: string) => {
+        const filename = filenameOverride || ticket?.enginner_evidence_path;
+
+        if (!filename) {
             setAlertConfig({
                 visible: true,
                 title: 'Info',
@@ -277,14 +281,18 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
 
         try {
-            setIsFetchingEngEvidence(true);
-            console.log('Calling API with filename:', ticket?.enginner_evidence_path);
+            if (filenameOverride) {
+                setLoadingEvidenceFilename(filename);
+            } else {
+                setIsFetchingEngEvidence(true);
+            }
+            console.log('Calling API with filename:', filename);
 
             const response: any = await callAPIWithoutEnc(
                 'user/getImgAsBase64ByFileName',
                 'POST',
                 {
-                    filename: ticket?.enginner_evidence_path,
+                    filename: filename,
                 }
             );
 
@@ -304,6 +312,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         } catch (e: any) {
             console.error('Exception loading image:', e);
         } finally {
+            setLoadingEvidenceFilename(null);
             setIsFetchingEngEvidence(false);
         }
     };
@@ -808,7 +817,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                             {activeTab === 'details' && (
                                 <ScrollView
                                     style={styles.tabContent}
-                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
                                 >
                                     {/* Basic Info */}
                                     <Text style={styles.sectionTitle}>Ticket Information</Text>
@@ -887,89 +896,128 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 <ActivityIndicator size="small" color={COLORS?.primary || '#2563eb'} />
                                                 <Text style={styles.loaderText}>Loading description...</Text>
                                             </View>
-                                        ) : ticketComments?.ticket_comments?.issue_desc ? (
-                                            <Text style={styles.descriptionText}>{ticketComments.ticket_comments.issue_desc}</Text>
+                                        ) : ticket?.issue_desc ? (
+                                            <Text style={styles.descriptionText}>{ticket?.issue_desc}</Text>
                                         ) : (
                                             <Text style={styles.emptyText}>No description available</Text>
                                         )}
                                     </View>
 
-                                    {/* Physical Verification */}
-                                    {ticketComments?.ticket_comments?.physical_verification_remarks && (
-                                        <View>
-                                            <Text style={styles.sectionTitle}>Field Engineer/Technician remarks</Text>
-                                            <View style={[styles.card, ticketComments?.ticket_comments?.physical_verification_remarks ? { backgroundColor: '#f0fdf4' } : { backgroundColor: '#fefce8' }]}>
-                                                {ticketComments?.ticket_comments?.physical_verification_remarks ? (
-                                                    <>
-                                                        <Text style={{ color: '#166534', fontWeight: 'bold' }}>✓ Physical verification completed</Text>
-                                                        <Text style={{ color: '#15803d', marginTop: 4 }}>Remarks: {ticketComments?.ticket_comments?.physical_verification_remarks}</Text>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Text style={{ color: '#854d0e', fontWeight: 'bold' }}>⚠ Physical verification pending</Text>
-                                                        <Text style={{ color: '#a16207', marginTop: 4 }}>Ticket creator must physically verify the resolution before final closure.</Text>
-                                                    </>
-                                                )}
+                                    {/* Field Engineer Verification Section */}
+                                    {ticket?.ticket_status > '220' && (
+                                        <View style={{ marginTop: 16 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+                                                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Field Engineer Verification</Text>
                                             </View>
-                                        </View>
-                                    )}
 
-                                    {/* Engineer Evidence */}
-                                    {(ticket?.enginner_evidence_path || (ticket?.latitude && ticket?.longitude)) && (
-                                        <View>
-                                            <Text style={styles.sectionTitle}>Engineer Evidence</Text>
-                                            <View style={styles.card}>
-                                                {ticket?.enginner_evidence_path && (
-                                                    <TouchableOpacity
-                                                        style={[styles.evidenceButton, isFetchingEngEvidence && styles.buttonDisabled]}
-                                                        onPress={getEngineerEvidenceImage}
-                                                        disabled={isFetchingEngEvidence}
-                                                    >
-                                                        {isFetchingEngEvidence ? (
-                                                            <ActivityIndicator size="small" color="#fff" />
-                                                        ) : (
-                                                            <Camera size={14} color="#fff" />
-                                                        )}
-                                                        <Text style={styles.evidenceButtonText}>
-                                                            {isFetchingEngEvidence ? 'Please wait...' : 'View Engineer Evidence'}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                )}
-
-                                                {ticket?.latitude && ticket?.longitude && (
-                                                    <View style={{ marginTop: 12 }}>
-                                                        <Text style={[styles.metaLabel, { marginBottom: 4 }]}>Captured Location:</Text>
-                                                        <TouchableOpacity
-                                                            style={{ width: 40, height: 40, justifyContent: 'center' }}
-                                                            onPress={() => openMap(ticket.latitude!, ticket.longitude!)}
-                                                        >
-                                                            <MapPin size={24} color={COLORS.primary} />
-                                                        </TouchableOpacity>
+                                            {(!ticketComments?.ticket_comments || ticketComments?.ticket_comments.length === 0) ? (
+                                                <View style={[styles.card, { backgroundColor: '#fefce8', borderStyle: 'dashed', borderColor: '#eab308' }]}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                                        <AlertTriangle size={16} color="#854d0e" />
+                                                        <Text style={{ color: '#854d0e', fontWeight: 'bold' }}>Physical verification pending</Text>
                                                     </View>
-                                                )}
-                                            </View>
+                                                    <Text style={{ color: '#a16207', fontSize: 13 }}>Ticket creator must physically verify the resolution before final closure.</Text>
+                                                </View>
+                                            ) : (
+                                                ticketComments?.ticket_comments?.map((item: any, index: number) => (
+                                                    <View key={index} style={[styles.card, { backgroundColor: '#fff', marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#10b981' }]}>
+                                                        {/* Header Row */}
+                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', paddingBottom: 8 }}>
+                                                            <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                                                                <Text style={{ color: '#166534', fontWeight: '700', fontSize: 12 }}>VERIFICATION #{index + 1}</Text>
+                                                            </View>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                                <Clock size={12} color="#6b7280" />
+                                                                <Text style={{ color: '#6b7280', fontSize: 11 }}>{item.document_capture_time || item.document_create_on || item.inprogress_date}</Text>
+                                                            </View>
+                                                        </View>
+
+                                                        {/* Engineer Info */}
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+                                                            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <User size={14} color="#6b7280" />
+                                                            </View>
+                                                            <Text style={{ color: '#374151', fontSize: 14, fontWeight: '600' }}>{item.enginner_name || item.document_captuer_enginner_name || 'Field Engineer'}</Text>
+                                                        </View>
+
+                                                        {/* Remarks */}
+                                                        <View style={{ backgroundColor: '#f9fafb', padding: 10, borderRadius: 8, marginBottom: 14 }}>
+                                                            <Text style={{ color: '#4b5563', fontSize: 13, lineHeight: 18 }}>
+                                                                {item.physical_verification_remarks || 'No remarks provided.'}
+                                                            </Text>
+                                                        </View>
+
+                                                        {/* Action Buttons Row */}
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                            {item.document_path ? (
+                                                                <TouchableOpacity
+                                                                    style={[
+                                                                        styles.evidenceButton,
+                                                                        { flex: 1, marginTop: 0, height: 44, borderRadius: 8 },
+                                                                        loadingEvidenceFilename === item.document_path && { opacity: 0.8, backgroundColor: '#3b82f6' }
+                                                                    ]}
+                                                                    onPress={() => getEngineerEvidenceImage(item.document_path)}
+                                                                    disabled={loadingEvidenceFilename === item.document_path}
+                                                                >
+                                                                    {loadingEvidenceFilename === item.document_path ? (
+                                                                        <ActivityIndicator size="small" color="#fff" />
+                                                                    ) : (
+                                                                        <Camera size={16} color="#fff" />
+                                                                    )}
+                                                                    <Text style={[styles.evidenceButtonText, { fontSize: 14, marginLeft: 8 }]}>
+                                                                        {loadingEvidenceFilename === item.document_path ? 'Please wait...' : 'View Evidence'}
+                                                                    </Text>
+                                                                </TouchableOpacity>
+                                                            ) : (
+                                                                <View style={{ flex: 1, height: 44, borderRadius: 8, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                                                                    <Camera size={14} color="#9ca3af" />
+                                                                    <Text style={{ color: '#9ca3af', fontSize: 13 }}>No Image</Text>
+                                                                </View>
+                                                            )}
+
+                                                            {item.latitude && item.longitude && (
+                                                                <TouchableOpacity
+                                                                    style={{
+                                                                        width: 44,
+                                                                        height: 44,
+                                                                        backgroundColor: '#fff',
+                                                                        borderRadius: 8,
+                                                                        justifyContent: 'center',
+                                                                        alignItems: 'center',
+                                                                        borderWidth: 1,
+                                                                        borderColor: '#10b981'
+                                                                    }}
+                                                                    onPress={() => openMap(String(item.latitude), String(item.longitude))}
+                                                                >
+                                                                    <MapPin size={22} color="#10b981" />
+                                                                </TouchableOpacity>
+                                                            )}
+                                                        </View>
+                                                    </View>
+                                                ))
+                                            )}
                                         </View>
                                     )}
 
                                     {/* Final Closure Remarks */}
-                                    {ticketComments?.ticket_comments?.final_closure_remarks && (
+                                    {ticketComments?.final_closure_remarks && (
                                         <View>
                                             <Text style={styles.sectionTitle}>Final Closure Remarks</Text>
                                             <View style={[styles.card, { backgroundColor: '#f9fafb' }]}>
-                                                <Text style={styles.descriptionText}>{ticketComments?.ticket_comments?.final_closure_remarks}</Text>
+                                                <Text style={styles.descriptionText}>{ticketComments?.final_closure_remarks}</Text>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                                                     <Text style={styles.metaLabel}>Satisfaction Rating: </Text>
                                                     <View style={{ flexDirection: 'row' }}>
                                                         {[1, 2, 3, 4, 5].map((star) => (
-                                                            <Text key={star} style={{ fontSize: 16, color: star <= ticketComments?.ticket_comments?.satisfaction_rating ? '#EAB308' : '#D1D5DB' }}>★</Text>
+                                                            <Text key={star} style={{ fontSize: 16, color: star <= (ticketComments?.satisfaction_rating || 0) ? '#EAB308' : '#D1D5DB' }}>★</Text>
                                                         ))}
                                                     </View>
-                                                    <Text style={{ marginLeft: 4, color: COLORS.textSecondary }}>({ticketComments?.ticket_comments?.satisfaction_rating}/5)</Text>
+                                                    <Text style={{ marginLeft: 4, color: COLORS.textSecondary }}>({ticketComments?.satisfaction_rating || 0}/5)</Text>
                                                 </View>
                                             </View>
                                         </View>
                                     )}
-                                    <View style={{ height: 40 }} />
+
                                 </ScrollView>
                             )}
                             {activeTab === 'chat' && <ChatInterface />}

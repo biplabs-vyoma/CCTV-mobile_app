@@ -17,12 +17,19 @@ import { CCTVFilters } from '../../components/cctv/CCTVFilters';
 import { NetworkDiagnosticsModal } from '../../components/cctv/NetworkDiagnosticsModal';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { Plus, Activity, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { CustomAlert } from '../../components/CustomAlert';
 
 export const CCTVMonitorScreen = () => {
     const { user } = useAuth();
     const [cctvsData, setCCTVsData] = useState<CCTVDevice[] | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [alertConfig, setAlertConfig] = useState({
+        visible: false,
+        title: '',
+        message: '',
+        type: 'info' as 'info' | 'success' | 'error' | 'warning'
+    });
 
     // Modals
     const [showAddModal, setShowAddModal] = useState(false);
@@ -68,7 +75,12 @@ export const CCTVMonitorScreen = () => {
             setCCTVsData(response?.data || []);
         } catch (error) {
             console.error(error);
-            Alert.alert("Error", "Failed to fetch CCTV list");
+            setAlertConfig({
+                visible: true,
+                title: 'Failed',
+                message: 'Failed to fetch CCTV list',
+                type: 'error'
+            });
         } finally {
             setIsLoading(false);
             setRefreshing(false);
@@ -203,7 +215,7 @@ export const CCTVMonitorScreen = () => {
                             <View style={styles.emptyState}>
                                 <AlertCircle size={48} color={COLORS.textSecondary} />
                                 <Text style={styles.emptyText}>
-                                    {cctvsData === null ? 'Loading data...' : 'No cameras found'}
+                                    {cctvsData === null ? 'No data' : 'No cameras found'}
                                 </Text>
                             </View>
                         ) : null
@@ -248,6 +260,14 @@ export const CCTVMonitorScreen = () => {
                     onClose={() => setSelectedCameraForDiagnostics(null)}
                 />
             )} */}
+
+            <CustomAlert
+                visible={alertConfig.visible}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, visible: false }))}
+            />
         </View>
     );
 };

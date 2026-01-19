@@ -564,7 +564,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 <Search size={18} color={COLORS?.textSecondary || '#666'} style={styles.searchIcon} />
                 <TextInput
                     style={styles.input}
-                    placeholder="Search tickets..."
+                    placeholder="Search tickets no or camera name"
                     placeholderTextColor={COLORS?.textSecondary || '#666'}
                     value={filters.search}
                     onChangeText={(text) => handleFilterUpdate('search', text)}
@@ -652,9 +652,8 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                     style={styles.actionButton}
                     onPress={() => {
                         onFilterChange({
+                            ...filters,
                             search: '',
-                            status_id: '',
-                            status_name: '',
                             priority_id: '',
                             priority_name: '',
                             vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',

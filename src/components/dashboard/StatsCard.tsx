@@ -63,20 +63,29 @@ export const StatsCard: React.FC<StatsCardProps> = ({
             disabled={!onPress}
         >
             <View style={styles.header}>
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.title}>{title}</Text>
-                    <Text style={styles.value}>{displayValue}</Text>
+                <View style={{ flex: 1, justifyContent: 'center' }}>
+                    <View style={{ minHeight: 40, justifyContent: 'center' }}>
+                        <Text style={styles.title}>{title}</Text>
+                    </View>
 
-                    {showChange && (
-                        <Text style={[
-                            styles.change,
-                            { color: changeType === 'positive' ? '#16a34a' : changeType === 'negative' ? '#dc2626' : '#4b5563' }
-                        ]}>
-                            {change}
-                        </Text>
-                    )}
+                    <View style={{ minHeight: 32, justifyContent: 'center', marginVertical: 4 }}>
+                        <Text style={styles.value}>{displayValue}</Text>
+                    </View>
+
+                    <View style={{ minHeight: 16, justifyContent: 'center' }}>
+                        {showChange ? (
+                            <Text
+                                style={[
+                                    styles.change,
+                                    { color: changeType === 'positive' ? '#16a34a' : changeType === 'negative' ? '#dc2626' : '#4b5563' }
+                                ]}
+                            >
+                                {change}
+                            </Text>
+                        ) : null}
+                    </View>
                 </View>
-                <View style={[styles.iconBox, { backgroundColor: bgColor }]}>
+                <View style={[styles.iconBox, { backgroundColor: bgColor, alignSelf: 'flex-start', marginLeft: 12 }]}>
                     <Icon size={24} color={themeColor} />
                 </View>
             </View>
@@ -99,6 +108,7 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         // Elevation for Android
         elevation: 2,
+        justifyContent: 'center', // Vertically center content if card is taller
     },
     header: {
         flexDirection: 'row',
@@ -108,14 +118,13 @@ const styles = StyleSheet.create({
     title: {
         fontSize: FONT_SIZES.xs,
         color: COLORS.textSecondary,
-        marginBottom: SPACING.xs,
         fontWeight: '500',
+        lineHeight: 16,
     },
     value: {
         fontSize: FONT_SIZES.xl,
         fontWeight: '700',
         color: COLORS.text,
-        marginBottom: SPACING.xs,
     },
     change: {
         fontSize: FONT_SIZES.xs,
