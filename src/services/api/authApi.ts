@@ -55,6 +55,9 @@ export const generateAuthToken = async (basicAuth: string): Promise<any> => {
             `${BASE_URL}auth/generateToken`,
             requestOptions
         );
+
+        console.log("response",await response.json());
+
         const data = await response.json();
 
         // Store token in AsyncStorage (React Native equivalent of cookies)
@@ -62,6 +65,9 @@ export const generateAuthToken = async (basicAuth: string): Promise<any> => {
         return data;
     } catch (error: any) {
         console.log(error?.message);
+        if(error?.message === "JSON Parse error: Unexpected end of input"){
+            throw new Error('Invalid credentials');
+        }
         throw new Error('Something went wrong, Please try again.');
     }
 };

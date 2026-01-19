@@ -18,7 +18,7 @@ export const LoginScreen = () => {
     const handleLogin = async () => {
         if (!email || !password) {
             showAlert({
-                title: "Error",
+                title: "Invalid Input",
                 message: "Please enter email and password",
                 type: 'error',
                 confirmText: "Okay"
