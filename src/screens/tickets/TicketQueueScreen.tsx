@@ -65,7 +65,7 @@ export const TicketQueueScreen: React.FC = () => {
     const auth = useAuth();
     const user = auth?.user;
     const isVendorRestricted = user?.user_type_id == 20 || user?.user_type_id == 30 || user?.user_type_id == 40;
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const route = useRoute();
 
     const params = route.params as any;

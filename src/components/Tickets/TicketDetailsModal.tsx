@@ -741,20 +741,43 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     };
 
     const renderTimelineItem = (item: any, idx: number) => {
-        let Icon = CheckCircle;
+        let IconComponent = CheckCircle;
         let color = '#9ca3af'; // gray
 
-        if (idx === 0) { Icon = Clock; color = '#9ca3af'; }
-        else if (idx === 1) { Icon = Clock; color = '#60a5fa'; } // blue
-        else if (idx === 2) { Icon = CheckCircle; color = '#4ade80'; } // green
+        // Basic status mapping - can be expanded
+        if (idx === 0) { IconComponent = Clock; color = COLORS?.primary || '#2563eb'; }
+        else if (item?.ticket_status?.toLowerCase().includes('open')) { IconComponent = AlertTriangle; color = '#ef4444'; }
+        else if (item?.ticket_status?.toLowerCase().includes('resolved')) { IconComponent = CheckCircle; color = '#10b981'; }
+
+        const isLast = idx === (ticketComments?.length - 1);
 
         return (
             <View key={idx} style={styles.timelineItem}>
-                <Icon size={16} color={color} style={{ marginTop: 2 }} />
-                <View style={{ marginLeft: 8, flex: 1 }}>
-                    <Text style={styles.timelineStatus}>{item?.ticket_status || '-'}</Text>
-                    <Text style={styles.timelineDate}>{item?.ticket_status_on_date ? new Date(item.ticket_status_on_date).toLocaleString() : ''}</Text>
-                    <Text style={styles.timelineUser}>by {item?.status_by} ({item?.status_by_user_type || '-'})</Text>
+                <View style={styles.timelineLeftColumn}>
+                    <View style={[styles.timelineIconWrapper, { backgroundColor: color + '15' }]}>
+                        <IconComponent size={14} color={color} />
+                    </View>
+                    {!isLast && <View style={styles.timelineLine} />}
+                </View>
+
+                <View style={styles.timelineRightColumn}>
+                    <View style={styles.timelineHeader}>
+                        <Text style={[styles.timelineStatus, { color: color }]}>{item?.ticket_status || '-'}</Text>
+                        <Text style={styles.timelineDate}>
+                            {item?.ticket_status_on_date ? new Date(item.ticket_status_on_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                        </Text>
+                    </View>
+
+                    <Text style={styles.timelineUser}>
+                        <User size={12} color={COLORS.textSecondary} /> {item?.status_by} • <Text style={{ fontWeight: '600' }}>{item?.status_by_user_type || '-'}</Text>
+                    </Text>
+
+                    {item?.remarks && item?.remarks.trim() !== "" && (
+                        <View style={styles.timelineRemarksContainer}>
+                            <MessageCircle size={14} color={COLORS.textSecondary} style={{ marginTop: 2 }} />
+                            <Text style={styles.timelineRemarksText}>{item.remarks}</Text>
+                        </View>
+                    )}
                 </View>
             </View>
         );
@@ -1769,21 +1792,66 @@ const styles = StyleSheet.create({
     },
     timelineItem: {
         flexDirection: 'row',
-        marginBottom: 12,
+        minHeight: 70,
+    },
+    timelineLeftColumn: {
+        alignItems: 'center',
+        width: 30,
+    },
+    timelineIconWrapper: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
+    },
+    timelineLine: {
+        flex: 1,
+        width: 2,
+        backgroundColor: '#e2e8f0',
+        marginVertical: 4,
+    },
+    timelineRightColumn: {
+        flex: 1,
+        paddingLeft: 12,
+        paddingBottom: 20,
+    },
+    timelineHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
     },
     timelineStatus: {
-        fontSize: 14,
-        color: COLORS?.text || '#000',
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '700',
     },
     timelineDate: {
-        fontSize: 12,
-        color: COLORS?.textSecondary || '#666',
+        fontSize: 11,
+        color: COLORS?.textSecondary || '#64748b',
     },
     timelineUser: {
         fontSize: 12,
-        color: COLORS?.textSecondary || '#666',
-        fontStyle: 'italic',
+        color: COLORS?.textSecondary || '#64748b',
+        marginBottom: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    timelineRemarksContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#f8fafc',
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        gap: 8,
+    },
+    timelineRemarksText: {
+        fontSize: 13,
+        color: COLORS?.text || '#1e293b',
+        flex: 1,
+        lineHeight: 18,
     },
     descriptionText: {
         color: COLORS?.text || '#000',

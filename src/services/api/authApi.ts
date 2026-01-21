@@ -55,12 +55,7 @@ export const generateAuthToken = async (basicAuth: string): Promise<any> => {
             `${BASE_URL}auth/generateToken`,
             requestOptions
         );
-
-        console.log("response",await response.json());
-
         const data = await response.json();
-
-        // Store token in AsyncStorage (React Native equivalent of cookies)
         await AsyncStorage.setItem('token', data?.data?.access_token || '');
         return data;
     } catch (error: any) {

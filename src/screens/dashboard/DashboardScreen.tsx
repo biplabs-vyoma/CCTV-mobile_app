@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, SPACING } from '../../constants/theme';
 import { fetchDashboardDetails, fetchRecentTickets } from '../../services/api/dashboardApi';
@@ -23,11 +23,10 @@ export const DashboardScreen = () => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (showLoader = false) => {
         if (!user) return;
         try {
-            // If refreshing, don't show full screen loader
-            if (!refreshing) setLoading(true);
+            if (showLoader && !refreshing) setLoading(true);
 
             console.log("user", user);
 
@@ -53,9 +52,14 @@ export const DashboardScreen = () => {
         }
     }, [user, refreshing]);
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            // If we already have data, refresh silently. 
+            // If no data (first time), show the loader.
+            const shouldShowLoader = !dashboardData;
+            loadData(shouldShowLoader);
+        }, [loadData, !!dashboardData])
+    );
 
     const onRefresh = () => {
         setRefreshing(true);
