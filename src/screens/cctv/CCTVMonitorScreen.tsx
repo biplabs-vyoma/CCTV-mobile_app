@@ -8,6 +8,7 @@ import {
     Alert,
     RefreshControl,
     ActivityIndicator,
+    Keyboard,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { CCTVDevice } from '../../types/cctv';
@@ -38,6 +39,7 @@ export const CCTVMonitorScreen = () => {
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
     const [filters, setFilters] = useState({
         status: '0',
@@ -89,6 +91,14 @@ export const CCTVMonitorScreen = () => {
 
     useEffect(() => {
         fetchData();
+
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+
+        return () => {
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
+        };
     }, [filters.status, filters.zone, filters.vendor]); // Refetch on core API filters
 
     // Local Filtering (Search + complex logic)
@@ -224,7 +234,7 @@ export const CCTVMonitorScreen = () => {
             )}
 
             {/* Pagination Controls */}
-            {totalPages > 1 && (
+            {totalPages > 1 && !isKeyboardVisible && (
                 <View style={styles.pagination}>
                     <TouchableOpacity
                         disabled={currentPage === 1}

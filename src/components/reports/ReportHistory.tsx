@@ -1,16 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
-import {
-    View,
-    Text,
-    StyleSheet,
-    ScrollView,
-    TouchableOpacity,
-    Modal,
-    FlatList,
-    ActivityIndicator,
-    TextInput
-} from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Keyboard } from 'react-native';
+import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import {
     Calendar,
     Search,
@@ -24,50 +15,183 @@ import {
     Ticket,
     Clock
 } from 'lucide-react-native';
-import { callAPIWithEnc } from '../../apis/common/api';
-import { useAuth } from '../../context/AuthContext';
-import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
+
+interface HistoryReport {
+    id: string;
+    title: string;
+    type: string;
+    generatedBy: string;
+    generatedAt: Date;
+    status: 'ready' | 'generating' | 'failed';
+    size: string;
+    format: string;
+}
+
+const mockReports: HistoryReport[] = [
+    {
+        id: 'RPT001',
+        title: 'Monthly Uptime Report - December 2024',
+        type: 'Uptime Report',
+        generatedBy: 'Inspector Rajesh Kumar',
+        generatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '2.4 MB',
+        format: 'PDF'
+    },
+    {
+        id: 'RPT002',
+        title: 'Vendor Performance Analysis - Q4 2024',
+        type: 'Performance Metrics',
+        generatedBy: 'Admin User',
+        generatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '1.8 MB',
+        format: 'Excel'
+    },
+    {
+        id: 'RPT003',
+        title: 'System Activity Log - Last Week',
+        type: 'Activity Log',
+        generatedBy: 'Inspector Rajesh Kumar',
+        generatedAt: new Date(Date.now() - 10 * 60 * 1000),
+        status: 'generating',
+        size: '-',
+        format: 'CSV'
+    },
+    {
+        id: 'RPT004',
+        title: 'SLA Compliance Report - November 2024',
+        type: 'SLA Compliance',
+        generatedBy: 'Admin User',
+        generatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        status: 'failed',
+        size: '-',
+        format: 'PDF'
+    },
+    {
+        id: 'RPT005',
+        title: 'CCTV Health Check - Oct 2024',
+        type: 'Health Check',
+        generatedBy: 'Admin User',
+        generatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '1.1 MB',
+        format: 'PDF'
+    },
+    {
+        id: 'RPT006',
+        title: 'System Activity Log - Week 45',
+        type: 'Activity Log',
+        generatedBy: 'Inspector Rajesh Kumar',
+        generatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '3.5 MB',
+        format: 'CSV'
+    },
+    
+    {
+        id: 'RPT007',
+        title: 'Ticket Closure Rates - Q3 2024',
+        type: 'Performance Metrics',
+        generatedBy: 'Admin User',
+        generatedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '0.9 MB',
+        format: 'Excel'
+    },
+    {
+        id: 'RPT008',
+        title: 'Monthly Uptime Report - November 2024',
+        type: 'Uptime Report',
+        generatedBy: 'Inspector Rajesh Kumar',
+        generatedAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '2.1 MB',
+        format: 'PDF'
+    },
+    {
+        id: 'RPT009',
+        title: 'Vendor Performance Analysis - Q3 2024',
+        type: 'Performance Metrics',
+        generatedBy: 'Admin User',
+        generatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '1.5 MB',
+        format: 'Excel'
+    },
+    {
+        id: 'RPT010',
+        title: 'System Activity Log - Month 11',
+        type: 'Activity Log',
+        generatedBy: 'Inspector Rajesh Kumar',
+        generatedAt: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '4.0 MB',
+        format: 'CSV'
+    },
+    {
+        id: 'RPT011',
+        title: 'Test Report 11',
+        type: 'Test',
+        generatedBy: 'Test User',
+        generatedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '0.1 MB',
+        format: 'PDF'
+    },
+    {
+        id: 'RPT012',
+        title: 'Test Report 12',
+        type: 'Test',
+        generatedBy: 'Test User',
+        generatedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000),
+        status: 'ready',
+        size: '0.2 MB',
+        format: 'PDF'
+    },
+];
 
 export const ReportHistory: React.FC = () => {
-    // @ts-ignore
-    const { user } = useAuth();
-    const [loading, setLoading] = useState(false);
-    const [fetchingMaster, setFetchingMaster] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8; // Slightly reduced for mobile screen space
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
-    // Master Data
-    const [regionOptions, setRegionOptions] = useState<any[]>([]);
-    const [activeModal, setActiveModal] = useState<string | null>(null);
+    React.useEffect(() => {
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
 
-    const [formData, setFormData] = useState({
-        region_id: "0",
-        region_name: "Select DRO",
-        zone_id: "0",
-        unit_id: "0",
-        vendor_id: "0",
-        start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        end_date: new Date().toISOString().split('T')[0]
-    });
-
-    // Fetch DRO (Region) Options
-    useEffect(() => {
-        const getRegionOptions = async () => {
-            setFetchingMaster(true);
-            try {
-                const response = await callAPIWithEnc("master/getRegion", "POST", {});
-                if (response?.data) {
-                    setRegionOptions(response.data.map((r: any) => ({
-                        id: r.region_id.toString(),
-                        name: r.region_name
-                    })));
-                }
-            } catch (err) {
-                console.error("Failed to fetch regions:", err);
-            } finally {
-                setFetchingMaster(false);
-            }
+        return () => {
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
         };
-        getRegionOptions();
     }, []);
+
+    const totalPages = Math.ceil(mockReports.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedReports = mockReports.slice(startIndex, endIndex);
+
+    const handlePageChange = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+        }
+    };
+
+    const formatDate = (date: Date) => {
+        const now = new Date();
+        const diff = now.getTime() - date.getTime();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+
+        if (hours < 1) {
+            const minutes = Math.floor(diff / (1000 * 60));
+            return `${minutes} min ago`;
+        }
+        if (hours < 24) {
+            return `${hours} hr ago`;
+        }
+        const days = Math.floor(hours / 24);
+        return `${days} d ago`;
+    };
 
     const handleSelectDRO = (id: string, name: string) => {
         setFormData(prev => ({
@@ -142,19 +266,18 @@ export const ReportHistory: React.FC = () => {
                         <Text style={styles.filterTitle}>Advanced Filter</Text>
                     </View>
 
-                    <View style={styles.filterGrid}>
-                        {/* DRO / Region Filter */}
-                        <View style={styles.filterItem}>
-                            <Text style={styles.filterLabel}>DRO</Text>
-                            <TouchableOpacity
-                                style={styles.selectButton}
-                                onPress={() => setActiveModal('DRO')}
-                            >
-                                <Text style={[
-                                    styles.selectButtonText,
-                                    formData.region_id === "0" && styles.placeholderText
-                                ]}>
-                                    {formData.region_name}
+            <FlatList
+                data={paginatedReports}
+                renderItem={renderReportItem}
+                keyExtractor={item => item.id}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                ListFooterComponent={() => (
+                    totalPages > 1 && !isKeyboardVisible ? (
+                        <View style={styles.pagination}>
+                            <View style={styles.pageInfo}>
+                                <Text style={styles.pageInfoText}>
+                                    Page <Text style={styles.bold}>{currentPage}</Text> of {totalPages}
                                 </Text>
                                 {fetchingMaster ? (
                                     <ActivityIndicator size="small" color={COLORS.primary} />

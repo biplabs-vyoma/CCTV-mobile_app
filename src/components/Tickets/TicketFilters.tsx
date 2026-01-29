@@ -642,8 +642,12 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
             {/* Row 5: Action Buttons */}
             <View style={styles.actionRow}>
                 <TouchableOpacity
-                    style={styles.searchButton}
+                    style={[
+                        styles.searchButton,
+                        (!filters.start_date || !filters.end_date) && styles.disabledSearchButton
+                    ]}
                     onPress={() => onSearch()}
+                    disabled={!filters.start_date || !filters.end_date}
                 >
                     <Text style={styles.searchButtonText}>Search</Text>
                 </TouchableOpacity>
@@ -773,6 +777,10 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         backgroundColor: COLORS?.primary || '#2563eb',
         height: 44,
+    },
+    disabledSearchButton: {
+        opacity: 0.5,
+        backgroundColor: '#94a3b8',
     },
     searchButtonText: {
         fontSize: 13,

@@ -75,6 +75,7 @@ export const TabNavigator = () => {
             screenOptions={({ route }) => ({
                 headerShown: true,
                 header: () => <CustomHeader />,
+                tabBarHideOnKeyboard: true,
                 tabBarActiveTintColor: (route.name === 'Tickets' && (route.params as any)?.disableStatusFilter)
                     ? (COLORS?.textSecondary || '#64748b')
                     : (COLORS?.primary || '#2563eb'),
