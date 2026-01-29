@@ -1,4 +1,7 @@
 {
   "name": "CctvApp",
-  "displayName": "CCTV Monitoring"
+  "displayName": "CCTV Monitoring",
+  "plugins": [
+    "expo-asset"
+  ]
 }

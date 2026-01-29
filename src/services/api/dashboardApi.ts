@@ -34,6 +34,8 @@ export const fetchRecentTickets = async (userId: string | number, userTypeId: st
             user_id: userId,
             user_type_id: userTypeId,
         };
+
+        console.log("payload", payload);
         const response = await callAPIWithEnc('user/getTicketRecentActivity', 'POST', payload);
 
         let parsedResult = response?.data;

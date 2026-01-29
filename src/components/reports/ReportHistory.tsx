@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Keyboard } from 'react-native';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import {
     FileText,
@@ -84,6 +84,7 @@ const mockReports: HistoryReport[] = [
         size: '3.5 MB',
         format: 'CSV'
     },
+    
     {
         id: 'RPT007',
         title: 'Ticket Closure Rates - Q3 2024',
@@ -149,6 +150,17 @@ const mockReports: HistoryReport[] = [
 export const ReportHistory: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8; // Slightly reduced for mobile screen space
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+    React.useEffect(() => {
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+
+        return () => {
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
+        };
+    }, []);
 
     const totalPages = Math.ceil(mockReports.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -268,7 +280,7 @@ export const ReportHistory: React.FC = () => {
                 contentContainerStyle={styles.listContent}
                 showsVerticalScrollIndicator={false}
                 ListFooterComponent={() => (
-                    totalPages > 1 ? (
+                    totalPages > 1 && !isKeyboardVisible ? (
                         <View style={styles.pagination}>
                             <View style={styles.pageInfo}>
                                 <Text style={styles.pageInfoText}>

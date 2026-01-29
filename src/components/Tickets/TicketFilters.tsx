@@ -36,12 +36,15 @@ const SearchableSelect = ({
     valueKey,
     placeholder,
     disabled = false,
+    showAllOption = true,
 }: any) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
 
     const safeOptions = Array.isArray(options) ? options : [];
-    const fullOptions = [{ [valueKey]: allOptionValue, [labelKey]: allOptionLabel }, ...safeOptions];
+    const fullOptions = showAllOption
+        ? [{ [valueKey]: allOptionValue, [labelKey]: allOptionLabel }, ...safeOptions]
+        : safeOptions;
 
     const filteredOptions = fullOptions.filter((option) =>
         option[labelKey]?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -550,10 +553,9 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                     onChange={(value: string) => handleFilterUpdate('status', value)}
                     labelKey="status_name"
                     valueKey="status_id"
-                    allOptionLabel="Select Status"
-                    allOptionValue=""
                     placeholder="Select Status"
                     disabled={disableStatusFilter}
+                    showAllOption={false}
                 />
             </View>
 
@@ -562,7 +564,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 <Search size={18} color={COLORS?.textSecondary || '#666'} style={styles.searchIcon} />
                 <TextInput
                     style={styles.input}
-                    placeholder="Search tickets..."
+                    placeholder="Search tickets no or camera name"
                     placeholderTextColor={COLORS?.textSecondary || '#666'}
                     value={filters.search}
                     onChangeText={(text) => handleFilterUpdate('search', text)}
@@ -640,8 +642,12 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
             {/* Row 5: Action Buttons */}
             <View style={styles.actionRow}>
                 <TouchableOpacity
-                    style={styles.searchButton}
+                    style={[
+                        styles.searchButton,
+                        (!filters.start_date || !filters.end_date) && styles.disabledSearchButton
+                    ]}
                     onPress={() => onSearch()}
+                    disabled={!filters.start_date || !filters.end_date}
                 >
                     <Text style={styles.searchButtonText}>Search</Text>
                 </TouchableOpacity>
@@ -650,9 +656,8 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                     style={styles.actionButton}
                     onPress={() => {
                         onFilterChange({
+                            ...filters,
                             search: '',
-                            status_id: '',
-                            status_name: '',
                             priority_id: '',
                             priority_name: '',
                             vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
@@ -772,6 +777,10 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         backgroundColor: COLORS?.primary || '#2563eb',
         height: 44,
+    },
+    disabledSearchButton: {
+        opacity: 0.5,
+        backgroundColor: '#94a3b8',
     },
     searchButtonText: {
         fontSize: 13,

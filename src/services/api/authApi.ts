@@ -56,12 +56,13 @@ export const generateAuthToken = async (basicAuth: string): Promise<any> => {
             requestOptions
         );
         const data = await response.json();
-
-        // Store token in AsyncStorage (React Native equivalent of cookies)
         await AsyncStorage.setItem('token', data?.data?.access_token || '');
         return data;
     } catch (error: any) {
         console.log(error?.message);
+        if(error?.message === "JSON Parse error: Unexpected end of input"){
+            throw new Error('Invalid credentials');
+        }
         throw new Error('Something went wrong, Please try again.');
     }
 };

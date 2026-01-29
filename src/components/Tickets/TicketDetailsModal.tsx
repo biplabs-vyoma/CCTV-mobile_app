@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     View,
     Text,
@@ -15,8 +15,9 @@ import {
     PermissionsAndroid,
     KeyboardAvoidingView
 } from 'react-native';
-import { launchCamera } from 'react-native-image-picker';
+import { Camera, useCameraDevice, useCameraPermission, useCameraFormat } from 'react-native-vision-camera';
 import Geolocation from 'react-native-geolocation-service';
+import RNFS from 'react-native-fs';
 import {
     X,
     Clock,
@@ -27,7 +28,7 @@ import {
     Settings,
     Phone,
     Mail,
-    Camera,
+    Camera as CameraIcon,
     Star,
     Check,
     ChevronDown,
@@ -98,6 +99,12 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     const [isLoadingSubResolutionCategories, setIsLoadingSubResolutionCategories] = useState(false);
 
     const [showCamera, setShowCamera] = useState(false);
+    const cameraRef = useRef<Camera>(null);
+    const device = useCameraDevice('back');
+    const format = useCameraFormat(device, [
+        { photoResolution: { width: 1280, height: 720 } }
+    ]);
+    const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } = useCameraPermission();
     const [alertConfig, setAlertConfig] = useState<{
         visible: boolean;
         title: string;
@@ -120,12 +127,14 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     const [isCapturingImage, setIsCapturingImage] = useState(false); // New State for Image Capture Loader
     const [isFetchingEvidence, setIsFetchingEvidence] = useState(false);
     const [isFetchingEngEvidence, setIsFetchingEngEvidence] = useState(false);
+    const [loadingEvidenceFilename, setLoadingEvidenceFilename] = useState<string | null>(null);
 
     const canManageTicket = [10, 20, 30, 40, 100].includes(Number(user?.user_type_id));
     const isTicketCreator = user?.user_id == ticket.ticket_created_user_id;
     const canFinalClose = isTicketCreator && ticket?.ticket_status == '220';
 
     console.log("Ticket Data:", ticketComments);
+    console.log("Ticket:", ticket);
 
     // Update loading state when ticketComments changes
     useEffect(() => {
@@ -264,8 +273,10 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
     };
 
-    const getEngineerEvidenceImage = async () => {
-        if (!ticket?.enginner_evidence_path) {
+    const getEngineerEvidenceImage = async (filenameOverride?: string) => {
+        const filename = filenameOverride || ticket?.enginner_evidence_path;
+
+        if (!filename) {
             setAlertConfig({
                 visible: true,
                 title: 'Info',
@@ -277,14 +288,18 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         }
 
         try {
-            setIsFetchingEngEvidence(true);
-            console.log('Calling API with filename:', ticket?.enginner_evidence_path);
+            if (filenameOverride) {
+                setLoadingEvidenceFilename(filename);
+            } else {
+                setIsFetchingEngEvidence(true);
+            }
+            console.log('Calling API with filename:', filename);
 
             const response: any = await callAPIWithoutEnc(
                 'user/getImgAsBase64ByFileName',
                 'POST',
                 {
-                    filename: ticket?.enginner_evidence_path,
+                    filename: filename,
                 }
             );
 
@@ -304,6 +319,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
         } catch (e: any) {
             console.error('Exception loading image:', e);
         } finally {
+            setLoadingEvidenceFilename(null);
             setIsFetchingEngEvidence(false);
         }
     };
@@ -467,37 +483,33 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     };
 
     const handleCaptureImage = async () => {
-        const options: any = {
-            mediaType: 'photo',
-            includeBase64: true,
-            quality: 0.7,
-            maxWidth: 1024,
-            maxHeight: 1024,
-            saveToPhotos: false,
-        };
-
         try {
             setIsCapturingImage(true);
-            // 1. Check Permissions on Android
+
+            // 1. Check Permissions
             if (Platform.OS === 'android') {
-                const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
-                const hasCameraPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
-
-                if (!hasPermission || !hasCameraPermission) {
-                    const grantedLoc = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
-                    const grantedCam = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA);
-
-                    if (grantedLoc !== PermissionsAndroid.RESULTS.GRANTED || grantedCam !== PermissionsAndroid.RESULTS.GRANTED) {
-                        toast.error('Location and Camera permissions are required');
+                const hasLocPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+                if (!hasLocPermission) {
+                    const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+                    if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+                        toast.error('Location permission is required');
+                        setIsCapturingImage(false);
                         return;
                     }
                 }
             }
 
-            // 2. PRE-CHECK: Check if Location Service (GPS) is ON before opening camera
+            if (!hasCameraPermission) {
+                const granted = await requestCameraPermission();
+                if (!granted) {
+                    toast.error('Camera permission is required');
+                    setIsCapturingImage(false);
+                    return;
+                }
+            }
+
+            // 2. Pre-check GPS
             try {
-                // Toast to inform user we are checking GPS
-                // toast.info('Verifying GPS status...'); 
                 await getLocationPromise();
             } catch (error: any) {
                 setAlertConfig({
@@ -517,63 +529,48 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 return;
             }
 
-            if (typeof launchCamera !== 'function') return;
-            const result = await launchCamera(options);
-
-            if (result.didCancel) {
-                setIsCapturingImage(false);
-                return;
-            } else if (result.errorCode) {
-                setIsCapturingImage(false);
-                setAlertConfig({
-                    visible: true,
-                    title: 'Camera Error',
-                    message: result.errorMessage || 'Failed to open camera',
-                    type: 'error',
-                    shouldCloseParent: false
-                });
-            } else if (result.assets && result.assets[0].base64) {
-                try {
-                    const position = await getLocationPromise();
-
-                    // If successful, save data
-                    const { latitude, longitude } = position.coords;
-
-                    const base64Data = `data:image/jpeg;base64,${result.assets[0].base64}`;
-
-                    console.log("\n\n========== COPY BELOW STRING AND PASTE IN CHROME ==========\n");
-                    console.log(base64Data);
-                    console.log("\n===========================================================\n\n");
-
-                    setCapturedImage(base64Data);
-
-                    setCurrentLocation({
-                        latitude: latitude.toString(),
-                        longitude: longitude.toString()
-                    });
-
-                    // toast.success('Evidence captured successfully with location');
-
-                } catch (locError) {
-                    // Location was turned off DURING capture
-                    setCapturedImage(null); // Discard the image
-                    setCurrentLocation({ latitude: '', longitude: '' });
-
-                    setAlertConfig({
-                        visible: true,
-                        title: 'Capture Failed',
-                        message: 'Location services were turned OFF during the process. The image has been discarded. Please keep GPS ON and try again.',
-                        type: 'error',
-                        shouldCloseParent: false
-                    });
-                }
-            }
+            setShowCamera(true);
         } catch (error: any) {
             console.error(error);
+            toast.error('Could not open camera');
+            setIsCapturingImage(false);
+        } finally {
+            setIsCapturingImage(false);
+        }
+    };
+
+    const takePhotoAction = async () => {
+        if (!cameraRef.current || !device) return;
+
+        try {
+            setIsCapturingImage(true);
+            const photo = await cameraRef.current.takePhoto({
+                flash: 'auto',
+                enableAutoRedEyeReduction: true,
+            });
+
+            if (photo) {
+                const position = await getLocationPromise();
+                const { latitude, longitude } = position.coords;
+
+                // Read file as base64 and add the prefix expected by the app
+                const base64Data = await RNFS.readFile(photo.path, 'base64');
+                const formattedBase64 = `data:image/jpeg;base64,${base64Data}`;
+
+                setCapturedImage(formattedBase64);
+                setCurrentLocation({
+                    latitude: latitude.toString(),
+                    longitude: longitude.toString()
+                });
+
+                setShowCamera(false);
+            }
+        } catch (error: any) {
+            console.error('Capture Error:', error);
             setAlertConfig({
                 visible: true,
-                title: 'Error',
-                message: 'An unexpected error occurred: ' + (error?.message || 'Unknown'),
+                title: 'Capture Error',
+                message: 'Failed to capture photo or location. Please ensure GPS is ON.',
                 type: 'error',
                 shouldCloseParent: false
             });
@@ -732,20 +729,43 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     };
 
     const renderTimelineItem = (item: any, idx: number) => {
-        let Icon = CheckCircle;
+        let IconComponent = CheckCircle;
         let color = '#9ca3af'; // gray
 
-        if (idx === 0) { Icon = Clock; color = '#9ca3af'; }
-        else if (idx === 1) { Icon = Clock; color = '#60a5fa'; } // blue
-        else if (idx === 2) { Icon = CheckCircle; color = '#4ade80'; } // green
+        // Basic status mapping - can be expanded
+        if (idx === 0) { IconComponent = Clock; color = COLORS?.primary || '#2563eb'; }
+        else if (item?.ticket_status?.toLowerCase().includes('open')) { IconComponent = AlertTriangle; color = '#ef4444'; }
+        else if (item?.ticket_status?.toLowerCase().includes('resolved')) { IconComponent = CheckCircle; color = '#10b981'; }
+
+        const isLast = idx === (ticketComments?.length - 1);
 
         return (
             <View key={idx} style={styles.timelineItem}>
-                <Icon size={16} color={color} style={{ marginTop: 2 }} />
-                <View style={{ marginLeft: 8, flex: 1 }}>
-                    <Text style={styles.timelineStatus}>{item?.ticket_status || '-'}</Text>
-                    <Text style={styles.timelineDate}>{item?.ticket_status_on_date ? new Date(item.ticket_status_on_date).toLocaleString() : ''}</Text>
-                    <Text style={styles.timelineUser}>by {item?.status_by} ({item?.status_by_user_type || '-'})</Text>
+                <View style={styles.timelineLeftColumn}>
+                    <View style={[styles.timelineIconWrapper, { backgroundColor: color + '15' }]}>
+                        <IconComponent size={14} color={color} />
+                    </View>
+                    {!isLast && <View style={styles.timelineLine} />}
+                </View>
+
+                <View style={styles.timelineRightColumn}>
+                    <View style={styles.timelineHeader}>
+                        <Text style={[styles.timelineStatus, { color: color }]}>{item?.ticket_status || '-'}</Text>
+                        <Text style={styles.timelineDate}>
+                            {item?.ticket_status_on_date ? new Date(item.ticket_status_on_date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                        </Text>
+                    </View>
+
+                    <Text style={styles.timelineUser}>
+                        <User size={12} color={COLORS.textSecondary} /> {item?.status_by} • <Text style={{ fontWeight: '600' }}>{item?.status_by_user_type || '-'}</Text>
+                    </Text>
+
+                    {item?.remarks && item?.remarks.trim() !== "" && (
+                        <View style={styles.timelineRemarksContainer}>
+                            <MessageCircle size={14} color={COLORS.textSecondary} style={{ marginTop: 2 }} />
+                            <Text style={styles.timelineRemarksText}>{item.remarks}</Text>
+                        </View>
+                    )}
                 </View>
             </View>
         );
@@ -808,13 +828,13 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                             {activeTab === 'details' && (
                                 <ScrollView
                                     style={styles.tabContent}
-                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
                                 >
                                     {/* Basic Info */}
                                     <Text style={styles.sectionTitle}>Ticket Information</Text>
                                     <View style={styles.card}>
                                         <View style={styles.infoRow}>
-                                            <Camera size={20} color={COLORS.textSecondary} />
+                                            <CameraIcon size={20} color={COLORS.textSecondary} />
                                             <View style={{ marginLeft: 10 }}>
                                                 <Text style={styles.infoTitle}>{ticket?.cctv_name}</Text>
                                                 <Text style={styles.infoText}>{ticket?.cctv_location_address}</Text>
@@ -830,7 +850,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                         {isFetchingEvidence ? (
                                                             <ActivityIndicator size="small" color="#fff" />
                                                         ) : (
-                                                            <Camera size={14} color="#fff" />
+                                                            <CameraIcon size={14} color="#fff" />
                                                         )}
                                                         <Text style={styles.evidenceButtonText}>
                                                             {isFetchingEvidence ? 'Please wait...' : 'View Evidence Image'}
@@ -887,89 +907,128 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 <ActivityIndicator size="small" color={COLORS?.primary || '#2563eb'} />
                                                 <Text style={styles.loaderText}>Loading description...</Text>
                                             </View>
-                                        ) : ticketComments?.ticket_comments?.issue_desc ? (
-                                            <Text style={styles.descriptionText}>{ticketComments.ticket_comments.issue_desc}</Text>
+                                        ) : ticket?.issue_desc ? (
+                                            <Text style={styles.descriptionText}>{ticket?.issue_desc}</Text>
                                         ) : (
                                             <Text style={styles.emptyText}>No description available</Text>
                                         )}
                                     </View>
 
-                                    {/* Physical Verification */}
-                                    {ticketComments?.ticket_comments?.physical_verification_remarks && (
-                                        <View>
-                                            <Text style={styles.sectionTitle}>Field Engineer/Technician remarks</Text>
-                                            <View style={[styles.card, ticketComments?.ticket_comments?.physical_verification_remarks ? { backgroundColor: '#f0fdf4' } : { backgroundColor: '#fefce8' }]}>
-                                                {ticketComments?.ticket_comments?.physical_verification_remarks ? (
-                                                    <>
-                                                        <Text style={{ color: '#166534', fontWeight: 'bold' }}>✓ Physical verification completed</Text>
-                                                        <Text style={{ color: '#15803d', marginTop: 4 }}>Remarks: {ticketComments?.ticket_comments?.physical_verification_remarks}</Text>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Text style={{ color: '#854d0e', fontWeight: 'bold' }}>⚠ Physical verification pending</Text>
-                                                        <Text style={{ color: '#a16207', marginTop: 4 }}>Ticket creator must physically verify the resolution before final closure.</Text>
-                                                    </>
-                                                )}
+                                    {/* Field Engineer Verification Section */}
+                                    {ticket?.ticket_status > '220' && (
+                                        <View style={{ marginTop: 16 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
+                                                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Field Engineer Verification</Text>
                                             </View>
-                                        </View>
-                                    )}
 
-                                    {/* Engineer Evidence */}
-                                    {(ticket?.enginner_evidence_path || (ticket?.latitude && ticket?.longitude)) && (
-                                        <View>
-                                            <Text style={styles.sectionTitle}>Engineer Evidence</Text>
-                                            <View style={styles.card}>
-                                                {ticket?.enginner_evidence_path && (
-                                                    <TouchableOpacity
-                                                        style={[styles.evidenceButton, isFetchingEngEvidence && styles.buttonDisabled]}
-                                                        onPress={getEngineerEvidenceImage}
-                                                        disabled={isFetchingEngEvidence}
-                                                    >
-                                                        {isFetchingEngEvidence ? (
-                                                            <ActivityIndicator size="small" color="#fff" />
-                                                        ) : (
-                                                            <Camera size={14} color="#fff" />
-                                                        )}
-                                                        <Text style={styles.evidenceButtonText}>
-                                                            {isFetchingEngEvidence ? 'Please wait...' : 'View Engineer Evidence'}
-                                                        </Text>
-                                                    </TouchableOpacity>
-                                                )}
-
-                                                {ticket?.latitude && ticket?.longitude && (
-                                                    <View style={{ marginTop: 12 }}>
-                                                        <Text style={[styles.metaLabel, { marginBottom: 4 }]}>Captured Location:</Text>
-                                                        <TouchableOpacity
-                                                            style={{ width: 40, height: 40, justifyContent: 'center' }}
-                                                            onPress={() => openMap(ticket.latitude!, ticket.longitude!)}
-                                                        >
-                                                            <MapPin size={24} color={COLORS.primary} />
-                                                        </TouchableOpacity>
+                                            {(!ticketComments?.ticket_comments || ticketComments?.ticket_comments.length === 0) ? (
+                                                <View style={[styles.card, { backgroundColor: '#fefce8', borderStyle: 'dashed', borderColor: '#eab308' }]}>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                                        <AlertTriangle size={16} color="#854d0e" />
+                                                        <Text style={{ color: '#854d0e', fontWeight: 'bold' }}>Physical verification pending</Text>
                                                     </View>
-                                                )}
-                                            </View>
+                                                    <Text style={{ color: '#a16207', fontSize: 13 }}>Ticket creator must physically verify the resolution before final closure.</Text>
+                                                </View>
+                                            ) : (
+                                                ticketComments?.ticket_comments?.map((item: any, index: number) => (
+                                                    <View key={index} style={[styles.card, { backgroundColor: '#fff', marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#10b981' }]}>
+                                                        {/* Header Row */}
+                                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', paddingBottom: 8 }}>
+                                                            <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
+                                                                <Text style={{ color: '#166534', fontWeight: '700', fontSize: 12 }}>VERIFICATION #{index + 1}</Text>
+                                                            </View>
+                                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                                <Clock size={12} color="#6b7280" />
+                                                                <Text style={{ color: '#6b7280', fontSize: 11 }}>{item.document_capture_time || item.document_create_on || item.inprogress_date}</Text>
+                                                            </View>
+                                                        </View>
+
+                                                        {/* Engineer Info */}
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+                                                            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' }}>
+                                                                <User size={14} color="#6b7280" />
+                                                            </View>
+                                                            <Text style={{ color: '#374151', fontSize: 14, fontWeight: '600' }}>{item.enginner_name || item.document_captuer_enginner_name || 'Field Engineer'}</Text>
+                                                        </View>
+
+                                                        {/* Remarks */}
+                                                        <View style={{ backgroundColor: '#f9fafb', padding: 10, borderRadius: 8, marginBottom: 14 }}>
+                                                            <Text style={{ color: '#4b5563', fontSize: 13, lineHeight: 18 }}>
+                                                                {item.physical_verification_remarks || 'No remarks provided.'}
+                                                            </Text>
+                                                        </View>
+
+                                                        {/* Action Buttons Row */}
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                            {item.document_path ? (
+                                                                <TouchableOpacity
+                                                                    style={[
+                                                                        styles.evidenceButton,
+                                                                        { flex: 1, marginTop: 0, height: 44, borderRadius: 8 },
+                                                                        loadingEvidenceFilename === item.document_path && { opacity: 0.8, backgroundColor: '#3b82f6' }
+                                                                    ]}
+                                                                    onPress={() => getEngineerEvidenceImage(item.document_path)}
+                                                                    disabled={loadingEvidenceFilename === item.document_path}
+                                                                >
+                                                                    {loadingEvidenceFilename === item.document_path ? (
+                                                                        <ActivityIndicator size="small" color="#fff" />
+                                                                    ) : (
+                                                                        <CameraIcon size={16} color="#fff" />
+                                                                    )}
+                                                                    <Text style={[styles.evidenceButtonText, { fontSize: 14, marginLeft: 8 }]}>
+                                                                        {loadingEvidenceFilename === item.document_path ? 'Please wait...' : 'View Evidence'}
+                                                                    </Text>
+                                                                </TouchableOpacity>
+                                                            ) : (
+                                                                <View style={{ flex: 1, height: 44, borderRadius: 8, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 }}>
+                                                                    <CameraIcon size={14} color="#9ca3af" />
+                                                                    <Text style={{ color: '#9ca3af', fontSize: 13 }}>No Image</Text>
+                                                                </View>
+                                                            )}
+
+                                                            {item.latitude && item.longitude && (
+                                                                <TouchableOpacity
+                                                                    style={{
+                                                                        width: 44,
+                                                                        height: 44,
+                                                                        backgroundColor: '#fff',
+                                                                        borderRadius: 8,
+                                                                        justifyContent: 'center',
+                                                                        alignItems: 'center',
+                                                                        borderWidth: 1,
+                                                                        borderColor: '#10b981'
+                                                                    }}
+                                                                    onPress={() => openMap(String(item.latitude), String(item.longitude))}
+                                                                >
+                                                                    <MapPin size={22} color="#10b981" />
+                                                                </TouchableOpacity>
+                                                            )}
+                                                        </View>
+                                                    </View>
+                                                ))
+                                            )}
                                         </View>
                                     )}
 
                                     {/* Final Closure Remarks */}
-                                    {ticketComments?.ticket_comments?.final_closure_remarks && (
+                                    {ticketComments?.final_closure_remarks && (
                                         <View>
                                             <Text style={styles.sectionTitle}>Final Closure Remarks</Text>
                                             <View style={[styles.card, { backgroundColor: '#f9fafb' }]}>
-                                                <Text style={styles.descriptionText}>{ticketComments?.ticket_comments?.final_closure_remarks}</Text>
+                                                <Text style={styles.descriptionText}>{ticketComments?.final_closure_remarks}</Text>
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
                                                     <Text style={styles.metaLabel}>Satisfaction Rating: </Text>
                                                     <View style={{ flexDirection: 'row' }}>
                                                         {[1, 2, 3, 4, 5].map((star) => (
-                                                            <Text key={star} style={{ fontSize: 16, color: star <= ticketComments?.ticket_comments?.satisfaction_rating ? '#EAB308' : '#D1D5DB' }}>★</Text>
+                                                            <Text key={star} style={{ fontSize: 16, color: star <= (ticketComments?.satisfaction_rating || 0) ? '#EAB308' : '#D1D5DB' }}>★</Text>
                                                         ))}
                                                     </View>
-                                                    <Text style={{ marginLeft: 4, color: COLORS.textSecondary }}>({ticketComments?.ticket_comments?.satisfaction_rating}/5)</Text>
+                                                    <Text style={{ marginLeft: 4, color: COLORS.textSecondary }}>({ticketComments?.satisfaction_rating || 0}/5)</Text>
                                                 </View>
                                             </View>
                                         </View>
                                     )}
-                                    <View style={{ height: 40 }} />
+
                                 </ScrollView>
                             )}
                             {activeTab === 'chat' && <ChatInterface />}
@@ -1179,7 +1238,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                             <ActivityIndicator size="small" color="#fff" />
                                                         ) : (
                                                             <>
-                                                                <Camera size={20} color="#fff" />
+                                                                <CameraIcon size={20} color="#fff" />
                                                                 <Text style={styles.captureButtonText}>
                                                                     {capturedImage ? 'Retake Photo' : 'Take Photo'}
                                                                 </Text>
@@ -1212,13 +1271,13 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
                                             {/* Resolution Category Dropdown */}
                                             <View style={{ marginBottom: 16 }}>
-                                                <Text style={styles.inputLabel}>Resolution Category</Text>
+                                                <Text style={styles.inputLabel}>Problems Category</Text>
                                                 <TouchableOpacity
                                                     style={styles.selectButton}
                                                     onPress={() => setIsResolutionCategoryModalVisible(true)}
                                                 >
                                                     <Text style={{ color: selectedResolutionCategoryId ? COLORS.text : COLORS.textSecondary }}>
-                                                        {selectedResolutionCategoryName || 'Select Resolution Category'}
+                                                        {selectedResolutionCategoryName || 'Select Problems Category'}
                                                     </Text>
                                                     <ChevronDown size={20} color={COLORS.textSecondary} />
                                                 </TouchableOpacity>
@@ -1228,7 +1287,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                     <View style={styles.modalOverlay}>
                                                         <View style={styles.modalContent}>
                                                             <View style={styles.modalHeader}>
-                                                                <Text style={styles.modalTitle}>Select Resolution Category</Text>
+                                                                <Text style={styles.modalTitle}>Select Problems Category</Text>
                                                                 <TouchableOpacity onPress={() => setIsResolutionCategoryModalVisible(false)}>
                                                                     <X size={24} color={COLORS.text} />
                                                                 </TouchableOpacity>
@@ -1280,10 +1339,9 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                     </View>
                                                 </Modal>
                                             </View>
-
                                             {/* Sub-Resolution Category Dropdown */}
                                             <View style={{ marginBottom: 16 }}>
-                                                <Text style={styles.inputLabel}>Sub Resolution Category</Text>
+                                                <Text style={styles.inputLabel}>Sub Problems Category</Text>
                                                 <TouchableOpacity
                                                     style={[
                                                         styles.selectButton,
@@ -1504,14 +1562,54 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             />
 
             {/* Camera Modal */}
-            {/* {showCamera && (
+            {showCamera && (
                 <Modal visible={true} animationType="slide" statusBarTranslucent>
-                    <CameraCapture
-                        onCapture={handleCameraCapture}
-                        onClose={() => setShowCamera(false)}
-                    />
+                    <View style={styles.cameraModalContainer}>
+                        {device ? (
+                            <Camera
+                                ref={cameraRef}
+                                style={styles.cameraPreview}
+                                device={device}
+                                isActive={true}
+                                photo={true}
+                                format={format}
+                                enableLocation={true}
+                            />
+                        ) : (
+                            <View style={styles.cameraErrorContainer}>
+                                <Text style={styles.cameraErrorText}>Camera device not found</Text>
+                            </View>
+                        )}
+
+                        {/* Top Bar */}
+                        <View style={styles.cameraTopBar}>
+                            <TouchableOpacity
+                                style={styles.cameraCloseButton}
+                                onPress={() => setShowCamera(false)}
+                            >
+                                <X size={28} color="#fff" />
+                            </TouchableOpacity>
+                            <Text style={styles.cameraTopTitle}>Capture Evidence</Text>
+                            <View style={{ width: 44 }} />
+                        </View>
+
+                        {/* Bottom Bar / Shutter */}
+                        <View style={styles.cameraBottomBar}>
+                            <TouchableOpacity
+                                style={styles.shutterButton}
+                                onPress={takePhotoAction}
+                                disabled={isCapturingImage}
+                            >
+                                {isCapturingImage ? (
+                                    <ActivityIndicator size="large" color="#fff" />
+                                ) : (
+                                    <View style={styles.shutterInner} />
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 </Modal>
-            )} */}
+            )}
         </Modal>
     );
 };
@@ -1721,21 +1819,66 @@ const styles = StyleSheet.create({
     },
     timelineItem: {
         flexDirection: 'row',
-        marginBottom: 12,
+        minHeight: 70,
+    },
+    timelineLeftColumn: {
+        alignItems: 'center',
+        width: 30,
+    },
+    timelineIconWrapper: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1,
+    },
+    timelineLine: {
+        flex: 1,
+        width: 2,
+        backgroundColor: '#e2e8f0',
+        marginVertical: 4,
+    },
+    timelineRightColumn: {
+        flex: 1,
+        paddingLeft: 12,
+        paddingBottom: 20,
+    },
+    timelineHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
     },
     timelineStatus: {
-        fontSize: 14,
-        color: COLORS?.text || '#000',
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '700',
     },
     timelineDate: {
-        fontSize: 12,
-        color: COLORS?.textSecondary || '#666',
+        fontSize: 11,
+        color: COLORS?.textSecondary || '#64748b',
     },
     timelineUser: {
         fontSize: 12,
-        color: COLORS?.textSecondary || '#666',
-        fontStyle: 'italic',
+        color: COLORS?.textSecondary || '#64748b',
+        marginBottom: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    timelineRemarksContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#f8fafc',
+        padding: 10,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+        gap: 8,
+    },
+    timelineRemarksText: {
+        fontSize: 13,
+        color: COLORS?.text || '#1e293b',
+        flex: 1,
+        lineHeight: 18,
     },
     descriptionText: {
         color: COLORS?.text || '#000',
@@ -2001,8 +2144,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         width: '80%',
         maxWidth: 300,
-        elevation: 5, // Android shadow
-        shadowColor: '#000', // iOS shadow
+        elevation: 5,
+        shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
@@ -2018,5 +2161,74 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: COLORS.textSecondary,
         textAlign: 'center',
+    },
+    // Vision Camera Styles
+    cameraModalContainer: {
+        flex: 1,
+        backgroundColor: '#000',
+    },
+    cameraPreview: {
+        flex: 1,
+    },
+    cameraTopBar: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: 100,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingTop: 40,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+    },
+    cameraCloseButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cameraTopTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    cameraBottomBar: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 120,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    shutterButton: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        borderWidth: 4,
+        borderColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    shutterInner: {
+        width: 58,
+        height: 58,
+        borderRadius: 29,
+        backgroundColor: '#fff',
+    },
+    cameraErrorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#000',
+    },
+    cameraErrorText: {
+        color: '#fff',
+        fontSize: 16,
     },
 });

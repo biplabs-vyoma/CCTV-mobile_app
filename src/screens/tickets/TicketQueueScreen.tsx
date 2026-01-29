@@ -61,11 +61,23 @@ const getDateMinusOneMonth = (dateString: string) => {
     }
 };
 
+// Helper function to get default date range (2 months ago to today)
+const getDefaultDates = () => {
+    const today = new Date();
+    const endDate = `${String(today.getDate()).padStart(2, '0')}-${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+
+    const twoMonthsAgo = new Date();
+    twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+    const startDate = `${String(twoMonthsAgo.getDate()).padStart(2, '0')}-${String(twoMonthsAgo.getMonth() + 1).padStart(2, '0')}-${twoMonthsAgo.getFullYear()}`;
+
+    return { startDate, endDate };
+};
+
 export const TicketQueueScreen: React.FC = () => {
     const auth = useAuth();
     const user = auth?.user;
     const isVendorRestricted = user?.user_type_id == 20 || user?.user_type_id == 30 || user?.user_type_id == 40;
-    const navigation = useNavigation();
+    const navigation = useNavigation<any>();
     const route = useRoute();
 
     const params = route.params as any;
@@ -76,6 +88,8 @@ export const TicketQueueScreen: React.FC = () => {
 
     console.log('params', params);
 
+    // Get default dates (2 months ago to today)
+    const { startDate: defaultStartDate, endDate: defaultEndDate } = getDefaultDates();
 
     const [activeTab, setActiveTab] = useState<'details' | 'engineer' | 'status' | 'chat'>('details');
     const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -103,15 +117,14 @@ export const TicketQueueScreen: React.FC = () => {
         priority_name: '',
         vendor_name: '',
         search: '',
-        start_date: '',
-        end_date: '',
+        start_date: defaultStartDate,  // Default: 2 months ago
+        end_date: defaultEndDate,      // Default: today
         category_id: '',
         category_name: '',
     });
     const [hasSearched, setHasSearched] = useState(false);
 
 
-    console.log('filters', filters);
 
     const fetchGetTicketDetailsListByUser = useCallback(async (overrideFilters?: any, isAutoSearch: boolean = false) => {
         // Check if overrideFilters is a valid filter object and not a React event object
@@ -175,7 +188,7 @@ export const TicketQueueScreen: React.FC = () => {
                 user_id: Number(user?.user_id),
                 user_type_id: Number(user?.user_type_id),
                 severity_id: currentFilters.priority_id,
-                vendor_id: currentFilters.vendor_id,
+                vendor_id: String(user?.vendor_id),
                 start_date: currentFilters.start_date,
                 end_date: currentFilters.end_date,
                 category_id: Number(currentFilters.category_id || 0),
@@ -232,8 +245,8 @@ export const TicketQueueScreen: React.FC = () => {
                     priority_name: '',
                     vendor_name: '',
                     search: '',
-                    start_date: '',
-                    end_date: '',
+                    start_date: defaultStartDate,  // Keep default dates
+                    end_date: defaultEndDate,      // Keep default dates
                     category_id: '',
                     category_name: '',
                 });
@@ -243,23 +256,23 @@ export const TicketQueueScreen: React.FC = () => {
                 // When coming from stats cards, notifications, or dashboard
                 const newFilters = {
                     status_id: statusID || '0',
-                    priority_id: fromDashboard ? '' : '0',
+                    priority_id: fromDashboard ? '0' : '0',
                     vendor_id: fromDashboard ? '0' : (isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0'),
                     status_name: '',
                     priority_name: '',
                     vendor_name: '',
                     search: fromDashboard ? '' : (ticketNumber || ''),
-                    start_date: (fromDashboard || !ticketDate) ? '' : getDateMinusOneMonth(ticketDate),
-                    end_date: (fromDashboard || !ticketDate) ? '' : ticketDate,
-                    category_id: fromDashboard ? '' : '0',
+                    start_date: fromDashboard ? defaultStartDate : (!ticketDate ? '' : getDateMinusOneMonth(ticketDate)),
+                    end_date: fromDashboard ? defaultEndDate : (ticketDate || ''),
+                    category_id: fromDashboard ? '0' : '0',
                     category_name: '',
                 };
                 setFilters(newFilters);
                 setTicketRecentActivity(null);
                 setHasSearched(false);
 
-                // Auto-search only if NOT coming from dashboard
-                if (!fromDashboard) {
+                // Auto-search when coming from dashboard OR from notifications
+                if (fromDashboard || !fromDashboard) {
                     fetchGetTicketDetailsListByUser(newFilters, true);
                 }
             }

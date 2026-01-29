@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl, Keyboard } from 'react-native';
 import { Ticket } from '../../types/Ticket';
 import { TicketRow } from './TicketRow';
 import { useAuth } from '../../context/AuthContext'; // Corrected path
@@ -29,6 +29,17 @@ export const TicketList: React.FC<TicketListProps> = ({
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+    React.useEffect(() => {
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setIsKeyboardVisible(true));
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setIsKeyboardVisible(false));
+
+        return () => {
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
+        };
+    }, []);
 
     const totalPages = Math.ceil((tickets?.length || 0) / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -71,7 +82,7 @@ export const TicketList: React.FC<TicketListProps> = ({
     }
 
     const renderFooter = () => {
-        if (totalPages <= 1) return null;
+        if (totalPages <= 1 || isKeyboardVisible) return null;
 
         return (
             <View style={styles.footer}>

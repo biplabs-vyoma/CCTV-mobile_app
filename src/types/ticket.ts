@@ -18,6 +18,8 @@ export interface Ticket {
     enginner_evidence_path?: string;
     latitude?: string;
     longitude?: string;
+    issue_desc?: string;
+    incident_category_id?: string | number;
 }
 
 export interface Engineer {
