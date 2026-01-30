@@ -8,11 +8,7 @@ import { SplashScreen } from '../screens/splash/SplashScreen';
 const Stack = createNativeStackNavigator();
 
 export const RootNavigator = () => {
-    const { isAuthenticated, isLoading } = useAuth();
-
-    if (isLoading) {
-        return <SplashScreen />;
-    }
+    const { isAuthenticated } = useAuth();
 
     return (
         <Stack.Navigator screenOptions={{ headerShown: false }}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, Filter, ChevronDown, X, ChevronLeft, ChevronRight, Clock } from 'lucide-react-native';
 import { callAPIWithEnc } from '../../apis/common/api';
 import { useAuth } from '../../context/AuthContext';
@@ -18,6 +19,8 @@ interface TicketFiltersProps {
         end_date: string;
         category_id: string;
         category_name: string;
+        dro_id: string;
+        dro_name: string;
     };
     onFilterChange: (filters: any) => void;
     onSearch: () => void;
@@ -37,6 +40,7 @@ const SearchableSelect = ({
     placeholder,
     disabled = false,
     showAllOption = true,
+    isLoading = false,
 }: any) => {
     const [modalVisible, setModalVisible] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
@@ -80,7 +84,7 @@ const SearchableSelect = ({
                 onRequestClose={() => setModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
+                    <View style={[styles.modalContent, { paddingBottom: Math.max(useSafeAreaInsets().bottom, 16) }]}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>{placeholder}</Text>
                             <TouchableOpacity onPress={() => setModalVisible(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -96,27 +100,34 @@ const SearchableSelect = ({
                             onChangeText={setSearchTerm}
                         />
 
-                        <FlatList
-                            data={filteredOptions}
-                            keyExtractor={(item) => item[valueKey]?.toString() || Math.random().toString()}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={[
-                                        styles.optionItem,
-                                        item[valueKey] == value && styles.selectedOption
-                                    ]}
-                                    onPress={() => handleSelect(item[valueKey])}
-                                >
-                                    <Text style={[
-                                        styles.optionText,
-                                        item[valueKey] == value && styles.selectedOptionText
-                                    ]}>
-                                        {item[labelKey]}
-                                    </Text>
-                                </TouchableOpacity>
-                            )}
-                            ListEmptyComponent={<Text style={{ padding: 20, textAlign: 'center', color: COLORS?.textSecondary || '#666' }}>No options found</Text>}
-                        />
+                        {isLoading ? (
+                            <View style={{ padding: 40, alignItems: 'center', justifyContent: 'center' }}>
+                                <ActivityIndicator size="large" color={COLORS.primary || '#2563eb'} />
+                                <Text style={{ marginTop: 12, color: COLORS.textSecondary }}>Loading {placeholder}...</Text>
+                            </View>
+                        ) : (
+                            <FlatList
+                                data={filteredOptions}
+                                keyExtractor={(item) => item[valueKey]?.toString() || Math.random().toString()}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.optionItem,
+                                            item[valueKey] == value && styles.selectedOption
+                                        ]}
+                                        onPress={() => handleSelect(item[valueKey])}
+                                    >
+                                        <Text style={[
+                                            styles.optionText,
+                                            item[valueKey] == value && styles.selectedOptionText
+                                        ]}>
+                                            {item[labelKey]}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                                ListEmptyComponent={<Text style={{ padding: 20, textAlign: 'center', color: COLORS?.textSecondary || '#666' }}>No options found</Text>}
+                            />
+                        )}
                     </View>
                 </View>
             </Modal>
@@ -430,6 +441,11 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
     const [vendors, setVendors] = useState<Array<any>>([]);
     const [statuses, setStatuses] = useState<Array<any>>([]);
     const [categories, setCategories] = useState<Array<any>>([]);
+    const [dros, setDros] = useState<Array<any>>([]);
+    const [isLoadingVendors, setIsLoadingVendors] = useState(false);
+    const [isLoadingStatuses, setIsLoadingStatuses] = useState(false);
+    const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+    const [isLoadingDros, setIsLoadingDros] = useState(false);
     // @ts-ignore
     const { user } = useAuth();
 
@@ -438,14 +454,18 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
     useEffect(() => {
         const getVendorOptions = async () => {
             try {
+                setIsLoadingVendors(true);
                 const response: any = await callAPIWithEnc('master/getVendor', 'POST', {});
                 setVendors(response?.data || []);
             } catch (e) {
                 console.log('Error fetching vendors', e);
+            } finally {
+                setIsLoadingVendors(false);
             }
         };
         const getStatusOptions = async () => {
             try {
+                setIsLoadingStatuses(true);
                 const response: any = await callAPIWithEnc('master/getStatusDetails', 'POST', {});
                 const allStatuses = response?.data || [];
                 // Filter to only include Assigned (220) and In Progress (230)
@@ -454,23 +474,50 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 setStatuses(filteredStatuses);
             } catch (e) {
                 console.log('Error fetching statuses', e);
+            } finally {
+                setIsLoadingStatuses(false);
             }
         };
         const getCategoryOptions = async () => {
             try {
+                setIsLoadingCategories(true);
                 const response: any = await callAPIWithEnc('master/getIncidentCategoryDetails', 'POST', {});
                 setCategories(response?.data || []);
             } catch (e) {
                 console.log('Error fetching categories', e);
+            } finally {
+                setIsLoadingCategories(false);
+            }
+        };
+        const getDROOptions = async () => {
+            try {
+                setIsLoadingDros(true);
+                const response: any = await callAPIWithEnc('master/getRegion', 'POST', {});
+                setDros(response?.data || []);
+            } catch (e) {
+                console.log('Error fetching DROs', e);
+            } finally {
+                setIsLoadingDros(false);
             }
         };
         getVendorOptions();
         getStatusOptions();
         getCategoryOptions();
+        getDROOptions();
     }, []);
 
     useEffect(() => {
-        if (isVendorRestricted && user?.vendor_id) {
+        // Sync vendor name if ID is set but name is missing or mismatched
+        if (filters.vendor_id && filters.vendor_id !== '0') {
+            const vendor = vendors.find((v) => v.vendor_id == filters.vendor_id);
+            if (vendor && (!filters.vendor_name || filters.vendor_name !== vendor.vendor_name)) {
+                onFilterChange({
+                    ...filters,
+                    vendor_name: vendor.vendor_name || '',
+                });
+            }
+        } else if (user?.vendor_id && String(user.vendor_id) !== '0') {
+            // Fallback: If user has vendor ID but filter is not set, force set it
             const vendor = vendors.find((v) => v.vendor_id == user.vendor_id);
             if (vendor && filters.vendor_id !== String(user.vendor_id)) {
                 onFilterChange({
@@ -480,7 +527,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                 });
             }
         }
-    }, [vendors, user?.vendor_id, isVendorRestricted]);
+    }, [vendors, filters.vendor_id, user?.vendor_id]);
 
     const priorities = [
         { priority_id: '1', priority_name: 'low' },
@@ -538,6 +585,17 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                     category_name: category?.incident_category_name || '',
                 });
             }
+        } else if (key === 'dro') {
+            if (value === '0') {
+                onFilterChange({ ...filters, dro_id: '0', dro_name: '' });
+            } else {
+                const dro = dros.find((d) => d.region_id == value);
+                onFilterChange({
+                    ...filters,
+                    dro_id: dro?.region_id || '',
+                    dro_name: dro?.region_name || '',
+                });
+            }
         } else {
             onFilterChange({ ...filters, [key]: value });
         }
@@ -556,6 +614,7 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                     placeholder="Select Status"
                     disabled={disableStatusFilter}
                     showAllOption={false}
+                    isLoading={isLoadingStatuses}
                 />
             </View>
 
@@ -609,6 +668,23 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
 
                 <View style={styles.filterWrapper}>
                     <SearchableSelect
+                        options={vendors}
+                        value={filters.vendor_id}
+                        onChange={(value: string) => handleFilterUpdate('vendor', value)}
+                        labelKey="vendor_name"
+                        valueKey="vendor_id"
+                        allOptionLabel="All Vendors"
+                        placeholder="Select Vendor"
+                        disabled={isVendorRestricted}
+                        isLoading={isLoadingVendors}
+                    />
+                </View>
+            </View>
+
+            {/* Row 4: Category & DRO */}
+            <View style={styles.row}>
+                <View style={styles.filterWrapper}>
+                    <SearchableSelect
                         options={categories}
                         value={filters.category_id}
                         onChange={(value: string) => handleFilterUpdate('category', value)}
@@ -616,28 +692,23 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                         valueKey="incident_category_id"
                         allOptionLabel="All Categories"
                         placeholder="Select Category"
+                        isLoading={isLoadingCategories}
+                    />
+                </View>
+
+                <View style={styles.filterWrapper}>
+                    <SearchableSelect
+                        options={dros}
+                        value={filters.dro_id}
+                        onChange={(value: string) => handleFilterUpdate('dro', value)}
+                        labelKey="region_name"
+                        valueKey="region_id"
+                        allOptionLabel="All DRO/Regions"
+                        placeholder="Select DRO/Region"
+                        isLoading={isLoadingDros}
                     />
                 </View>
             </View>
-
-
-            {/* Row 4: Vendor (if allowed) */}
-            {!isVendorRestricted && (
-                <View style={styles.row}>
-                    <View style={styles.filterWrapper}>
-                        <SearchableSelect
-                            options={vendors}
-                            value={filters.vendor_id || '0'}
-                            onChange={(value: string) => handleFilterUpdate('vendor', value)}
-                            labelKey="vendor_name"
-                            valueKey="vendor_id"
-                            allOptionLabel="All Vendors"
-                            placeholder="Vendor"
-                            disabled={isVendorRestricted}
-                        />
-                    </View>
-                </View>
-            )}
 
             {/* Row 5: Action Buttons */}
             <View style={styles.actionRow}>
@@ -660,12 +731,16 @@ export const TicketFilters: React.FC<TicketFiltersProps> = ({
                             search: '',
                             priority_id: '',
                             priority_name: '',
-                            vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
-                            vendor_name: '',
+                            // status_id: filters.status_id, // Keep current status
+                            // status_name: filters.status_name, // Keep current status
+                            vendor_id: filters.vendor_id,
+                            vendor_name: filters.vendor_name,
                             start_date: '',
                             end_date: '',
                             category_id: '',
                             category_name: '',
+                            dro_id: '',
+                            dro_name: '',
                         });
                         if (onClear) onClear();
                     }}

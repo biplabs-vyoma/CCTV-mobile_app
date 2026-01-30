@@ -64,16 +64,19 @@ export const decryptData = async (data: string) => {
 export const callAPIWithEnc: any = async (
     endpoint: string,
     method = 'GET',
-    body: any = null
+    body: any = null,
+    requiresAuth = true
 ) => {
     try {
         console.log(`[API_CALL] ${method} ${API_URL}`);
-        const token = await AsyncStorage.getItem('token');
         const headers: any = {
             accept: '*/*',
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token || ''}`,
         };
+        if (requiresAuth) {
+            const token = await AsyncStorage.getItem('token');
+            headers.Authorization = `Bearer ${token || ''}`;
+        }
         const requestOptions: any = {
             method,
             headers,

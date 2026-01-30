@@ -8,8 +8,10 @@ import {
     Modal,
     FlatList,
     ScrollView,
+    ActivityIndicator,
 } from 'react-native';
 import { Search, Filter, X, ChevronDown, Check } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { getVendors, getZones, getRegions } from '../../services/api/cctvApi';
 import { User } from '../../types/auth'; // Using auth user type
@@ -45,6 +47,9 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
     const [vendors, setVendors] = useState<Vendor[]>([]);
     const [zones, setZones] = useState<Zone[]>([]);
     const [regions, setRegions] = useState<any[]>([]);
+    const [isLoadingVendors, setIsLoadingVendors] = useState(false);
+    const [isLoadingRegions, setIsLoadingRegions] = useState(false);
+    const [isLoadingZones, setIsLoadingZones] = useState(false);
     const [activeModal, setActiveModal] = useState<string | null>(null);
     const isZoneDisabled = filters.region === '0';
 
@@ -57,12 +62,19 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
     useEffect(() => {
         const fetchOptions = async () => {
             try {
-                const vendorData = await getVendors();
-                const regionData = await getRegions();
+                setIsLoadingVendors(true);
+                setIsLoadingRegions(true);
+                const [vendorData, regionData] = await Promise.all([
+                    getVendors(),
+                    getRegions()
+                ]);
                 setVendors(vendorData?.data || []);
                 setRegions(regionData?.data || []);
             } catch (error) {
                 console.error("Failed to load initial filter options", error);
+            } finally {
+                setIsLoadingVendors(false);
+                setIsLoadingRegions(false);
             }
         };
         fetchOptions();
@@ -72,11 +84,14 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
     useEffect(() => {
         const fetchFilteredZones = async () => {
             try {
+                setIsLoadingZones(true);
                 // Fetch zones based on selected region (if region is '0', it gets all zones)
                 const zoneData = await getZones(filters.region !== '0' ? filters.region : undefined);
                 setZones(zoneData?.data || []);
             } catch (error) {
                 console.error("Failed to fetch zones for region", error);
+            } finally {
+                setIsLoadingZones(false);
             }
         };
         fetchFilteredZones();
@@ -120,6 +135,7 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
         keyField: string,
         labelField: string,
         currentValue: string,
+        isLoading: boolean,
         onSelect: (id: string, name: string) => void
     ) => (
         <Modal
@@ -140,30 +156,39 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
                             <X size={24} color={COLORS.textPrimary} />
                         </TouchableOpacity>
                     </View>
-                    <FlatList
-                        data={[{ [keyField]: '0', [labelField]: `All ${title}s` }, ...data]}
-                        keyExtractor={(item) => item[keyField].toString()}
-                        renderItem={({ item }) => (
-                            <TouchableOpacity
-                                style={[
-                                    styles.optionItem,
-                                    currentValue === item[keyField].toString() && styles.selectedOption
-                                ]}
-                                onPress={() => onSelect(item[keyField].toString(), item[labelField])}
-                            >
-                                <Text style={[
-                                    styles.optionText,
-                                    currentValue === item[keyField].toString() && styles.selectedOptionText
-                                ]}>
-                                    {item[labelField]}
-                                </Text>
-                                {currentValue === item[keyField].toString() && (
-                                    <Check size={20} color={COLORS?.primary || '#2563eb'}
-                                    />
+                    {isLoading ? (
+                        <View style={styles.loaderContainer}>
+                            <ActivityIndicator size="large" color={COLORS.primary} />
+                            <Text style={styles.loaderText}>Loading {title}...</Text>
+                        </View>
+                    ) : (
+                        <View style={{ paddingBottom: Math.max(useSafeAreaInsets().bottom, 15) }}>
+                            <FlatList
+                                data={[{ [keyField]: '0', [labelField]: `All ${title}s` }, ...data]}
+                                keyExtractor={(item) => item[keyField].toString()}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.optionItem,
+                                            currentValue === item[keyField].toString() && styles.selectedOption
+                                        ]}
+                                        onPress={() => onSelect(item[keyField].toString(), item[labelField])}
+                                    >
+                                        <Text style={[
+                                            styles.optionText,
+                                            currentValue === item[keyField].toString() && styles.selectedOptionText
+                                        ]}>
+                                            {item[labelField]}
+                                        </Text>
+                                        {currentValue === item[keyField].toString() && (
+                                            <Check size={20} color={COLORS?.primary || '#2563eb'}
+                                            />
+                                        )}
+                                    </TouchableOpacity>
                                 )}
-                            </TouchableOpacity>
-                        )}
-                    />
+                            />
+                        </View>
+                    )}
                 </View>
             </TouchableOpacity>
         </Modal>
@@ -265,10 +290,10 @@ export const CCTVFilters: React.FC<CCTVFiltersProps> = ({
             </View>
 
             {/* Modals */}
-            {renderDropdownModal('Status', statuses, 'status_id', 'status_name', filters.status, (id, name) => handleFilterUpdate('status', id, name))}
-            {renderDropdownModal('Police Station', zones, 'zone_id', 'zone_name', filters.zone, (id, name) => handleFilterUpdate('zone', id, name))}
-            {renderDropdownModal('DRO', regions, 'region_id', 'region_name', filters.region, (id, name) => handleFilterUpdate('region', id, name))}
-            {renderDropdownModal('Vendor', vendors, 'vendor_id', 'vendor_name', filters.vendor, (id, name) => handleFilterUpdate('vendor', id, name))}
+            {renderDropdownModal('Status', statuses, 'status_id', 'status_name', filters.status, false, (id, name) => handleFilterUpdate('status', id, name))}
+            {renderDropdownModal('Police Station', zones, 'zone_id', 'zone_name', filters.zone, isLoadingZones, (id, name) => handleFilterUpdate('zone', id, name))}
+            {renderDropdownModal('DRO', regions, 'region_id', 'region_name', filters.region, isLoadingRegions, (id, name) => handleFilterUpdate('region', id, name))}
+            {renderDropdownModal('Vendor', vendors, 'vendor_id', 'vendor_name', filters.vendor, isLoadingVendors, (id, name) => handleFilterUpdate('vendor', id, name))}
         </View>
     );
 };
@@ -409,5 +434,15 @@ const styles = StyleSheet.create({
     selectedOptionText: {
         color: COLORS.primary,
         fontWeight: '600',
+    },
+    loaderContainer: {
+        padding: SPACING.xl,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loaderText: {
+        marginTop: SPACING.m,
+        color: COLORS.textSecondary,
+        fontSize: FONT_SIZES.m,
     },
 });

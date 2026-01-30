@@ -4,6 +4,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { COLORS, SPACING } from '../../constants/theme';
 import { fetchDashboardDetails, fetchRecentTickets } from '../../services/api/dashboardApi';
+import { callAPIWithEnc } from '../../apis/common/api';
 import { DashboardStats, TicketApiResponse } from '../../types/dashboard';
 
 // Icons
@@ -22,6 +23,7 @@ export const DashboardScreen = () => {
     const [recentTickets, setRecentTickets] = useState<TicketApiResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const lastNotificationIdRef = React.useRef<string | null>(null);
 
     const loadData = useCallback(async (showLoader = false) => {
         if (!user) return;
@@ -60,6 +62,44 @@ export const DashboardScreen = () => {
             loadData(shouldShowLoader);
         }, [loadData, !!dashboardData])
     );
+
+    // Poll for new notifications every 15 seconds
+    React.useEffect(() => {
+        if (!user) return;
+
+        const checkNotifications = async () => {
+            try {
+                const response: any = await callAPIWithEnc('vendor/getNotificationDetails', 'POST', {
+                    user_id: user?.user_id,
+                    user_type_id: user?.user_type_id,
+                    vendor_id: user?.vendor_id,
+                });
+
+                const data = Array.isArray(response) ? response : (response?.data || []);
+                if (data && data.length > 0) {
+                    // Find the MAX notification ID to handle unsorted responses
+                    const maxId = Math.max(...data.map((item: any) => Number(item.notification_id) || 0));
+                    const currentMaxIdStr = String(maxId);
+
+                    if (lastNotificationIdRef.current === null) {
+                        lastNotificationIdRef.current = currentMaxIdStr;
+                    } else if (maxId > (Number(lastNotificationIdRef.current) || 0)) {
+                        console.log("Dashboard: New notification detected (ID " + currentMaxIdStr + "), refreshing data...");
+                        lastNotificationIdRef.current = currentMaxIdStr;
+                        loadData(false); // Silent refresh
+                    }
+                }
+            } catch (error) {
+                // silent
+            }
+        };
+
+        // Initial check
+        checkNotifications();
+
+        const interval = setInterval(checkNotifications, 30000);
+        return () => clearInterval(interval);
+    }, [user, loadData]);
 
     const onRefresh = () => {
         setRefreshing(true);

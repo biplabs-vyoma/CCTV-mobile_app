@@ -112,7 +112,7 @@ export const TicketQueueScreen: React.FC = () => {
     const [filters, setFilters] = useState({
         status_id: '0',
         priority_id: '',
-        vendor_id: '0',
+        vendor_id: user?.vendor_id && String(user.vendor_id) !== '0' ? String(user.vendor_id) : '',
         status_name: '',
         priority_name: '',
         vendor_name: '',
@@ -121,6 +121,8 @@ export const TicketQueueScreen: React.FC = () => {
         end_date: defaultEndDate,      // Default: today
         category_id: '',
         category_name: '',
+        dro_id: '0',
+        dro_name: '',
     });
     const [hasSearched, setHasSearched] = useState(false);
 
@@ -193,6 +195,7 @@ export const TicketQueueScreen: React.FC = () => {
                 end_date: currentFilters.end_date,
                 category_id: Number(currentFilters.category_id || 0),
                 ticket_status_id: Number(currentFilters.status_id || 0),
+                region_id: Number(currentFilters.dro_id || 0),
             };
 
             console.log('Payload:', JSON.stringify(payload, null, 2));
@@ -240,7 +243,7 @@ export const TicketQueueScreen: React.FC = () => {
                 setFilters({
                     status_id: '0',
                     priority_id: '',
-                    vendor_id: isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0',
+                    vendor_id: user?.vendor_id && String(user.vendor_id) !== '0' ? String(user.vendor_id) : '',
                     status_name: '',
                     priority_name: '',
                     vendor_name: '',
@@ -249,6 +252,8 @@ export const TicketQueueScreen: React.FC = () => {
                     end_date: defaultEndDate,      // Keep default dates
                     category_id: '',
                     category_name: '',
+                    dro_id: '0',
+                    dro_name: '',
                 });
                 setTicketRecentActivity(null);
                 setHasSearched(false);
@@ -257,7 +262,7 @@ export const TicketQueueScreen: React.FC = () => {
                 const newFilters = {
                     status_id: statusID || '0',
                     priority_id: fromDashboard ? '0' : '0',
-                    vendor_id: fromDashboard ? '0' : (isVendorRestricted && user?.vendor_id ? String(user.vendor_id) : '0'),
+                    vendor_id: fromDashboard ? '0' : (user?.vendor_id && String(user.vendor_id) !== '0' ? String(user.vendor_id) : ''),
                     status_name: '',
                     priority_name: '',
                     vendor_name: '',
@@ -266,6 +271,8 @@ export const TicketQueueScreen: React.FC = () => {
                     end_date: fromDashboard ? defaultEndDate : (ticketDate || ''),
                     category_id: fromDashboard ? '0' : '0',
                     category_name: '',
+                    dro_id: '0',
+                    dro_name: '',
                 };
                 setFilters(newFilters);
                 setTicketRecentActivity(null);
@@ -478,6 +485,7 @@ export const TicketQueueScreen: React.FC = () => {
                     activeTab={activeTab}
                     setActiveTab={setActiveTab}
                     ticketComments={ticketDescAndTimelineInfo}
+                    filterStatus={filters.status_id}
                 />
             )}
 

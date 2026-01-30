@@ -15,6 +15,7 @@ import {
     PermissionsAndroid,
     KeyboardAvoidingView
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Camera, useCameraDevice, useCameraPermission, useCameraFormat } from 'react-native-vision-camera';
 import Geolocation from 'react-native-geolocation-service';
 import RNFS from 'react-native-fs';
@@ -57,6 +58,7 @@ interface TicketDetailsModalProps {
     activeTab: 'details' | 'engineer' | 'status' | 'chat';
     setActiveTab: (tab: 'details' | 'engineer' | 'status' | 'chat') => void;
     ticketComments: any;
+    filterStatus?: string;
 }
 
 export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
@@ -66,9 +68,11 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     activeTab,
     setActiveTab,
     ticketComments,
+    filterStatus,
 }) => {
     // @ts-ignore
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
     const [selectedEngineerId, setSelectedEngineerId] = useState('');
     const [statusComments, setStatusComments] = useState('');
     const [isPhysicallyVerified, setIsPhysicallyVerified] = useState(false);
@@ -83,6 +87,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     const [statusOptions, setStatusOptions] = useState<any[]>([]);
     const [selectedStatusId, setSelectedStatusId] = useState('');
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+    const [assignedResolutionStatus, setAssignedResolutionStatus] = useState<string>('');
+    const [isResolutionStatusModalVisible, setIsResolutionStatusModalVisible] = useState(false);
 
     // Resolution Category State
     const [resolutionCategories, setResolutionCategories] = useState<any[]>([]);
@@ -128,6 +134,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
     const [isFetchingEvidence, setIsFetchingEvidence] = useState(false);
     const [isFetchingEngEvidence, setIsFetchingEngEvidence] = useState(false);
     const [loadingEvidenceFilename, setLoadingEvidenceFilename] = useState<string | null>(null);
+    const [isLoadingStatuses, setIsLoadingStatuses] = useState(false);
+    const [isLoadingEngineers, setIsLoadingEngineers] = useState(false);
 
     const canManageTicket = [10, 20, 30, 40, 100].includes(Number(user?.user_type_id));
     const isTicketCreator = user?.user_id == ticket.ticket_created_user_id;
@@ -154,6 +162,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
     const getFieldEnginnerByVendor = async () => {
         try {
+            setIsLoadingEngineers(true);
             const engineers = await callAPIWithEnc(
                 'vendor/getFieldEnginnerByVendor',
                 'POST',
@@ -180,6 +189,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             setAvailableEngineers(rawData || []);
         } catch (e) {
             console.log('Error fetching engineers', e);
+        } finally {
+            setIsLoadingEngineers(false);
         }
     };
 
@@ -340,6 +351,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
     const getStatusOptions = async () => {
         try {
+            setIsLoadingStatuses(true);
             console.log('--- Fetching Status Options ---');
             const response: any = await callAPIWithEnc('master/getStatusDetails', 'POST', {});
             console.log('Status API Response:', response);
@@ -349,6 +361,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             setStatusOptions(filteredStatuses);
         } catch (e) {
             console.log('Error fetching status options:', e);
+        } finally {
+            setIsLoadingStatuses(false);
         }
     };
 
@@ -614,6 +628,18 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             return;
         }
 
+        // Assigned Ticket Validation
+        if ((filterStatus === '220' || ticket?.ticket_status == '220') && !assignedResolutionStatus) {
+            setAlertConfig({
+                visible: true,
+                title: 'Update Failed',
+                message: 'Please select a resolution status (Resolved / Not Resolved)',
+                type: 'error',
+                shouldCloseParent: false
+            });
+            return;
+        }
+
         // LOADER START
         setIsSubmitting(true);
 
@@ -623,9 +649,15 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
             const cleanLongitude = Number(String(currentLocation.longitude || "0.0").replace(/[^\d.-]/g, ''));
             const cleanLatitude = Number(String(currentLocation.latitude || "0.0").replace(/[^\d.-]/g, ''));
 
-            const payload = {
+            // Resolution values: 1 = Resolved, 2 = Not Resolved. (Do not send 0 for Resolved)
+            // const resolutionStatusValue = (filterStatus === '220' || ticket?.ticket_status == '220')
+            //     ? Number(assignedResolutionStatus)
+            //     : 0;
+
+            const payload: any = {
                 ticket_id: Number(ticket?.ticket_id),
                 status_id: 230,
+                engineer_remarks_id: Number(assignedResolutionStatus),
                 remarks: statusComments,
                 evidence_file_path: capturedImage || "",
                 longitude: cleanLongitude,
@@ -634,6 +666,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                 user_type_id: Number(user?.user_type_id),
                 vendor_id: Number(user?.vendor_id || 0),
             };
+
+
 
             const response: any = await callAPIWithEnc(
                 'vendor/enginnerUpdateStatusByTicketId',
@@ -828,7 +862,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                             {activeTab === 'details' && (
                                 <ScrollView
                                     style={styles.tabContent}
-                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
+                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 + insets.bottom }}
+                                    keyboardShouldPersistTaps="handled"
                                 >
                                     {/* Basic Info */}
                                     <Text style={styles.sectionTitle}>Ticket Information</Text>
@@ -916,12 +951,15 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
                                     {/* Field Engineer Verification Section */}
                                     {ticket?.ticket_status > '220' && (
-                                        <View style={{ marginTop: 16 }}>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 8 }}>
-                                                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Field Engineer Verification</Text>
-                                            </View>
+                                        <View style={{ marginTop: 8 }}>
+                                            <Text style={styles.sectionTitle}>Field Engineer Verification</Text>
 
-                                            {(!ticketComments?.ticket_comments || ticketComments?.ticket_comments.length === 0) ? (
+                                            {isLoadingTimeline ? (
+                                                <View style={[styles.card, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 20, gap: 10 }]}>
+                                                    <ActivityIndicator size="small" color={COLORS?.primary || '#2563eb'} />
+                                                    <Text style={[styles.loaderText, { marginLeft: 0 }]}>Checking verification status...</Text>
+                                                </View>
+                                            ) : (!ticketComments?.ticket_comments || ticketComments?.ticket_comments.length === 0) ? (
                                                 <View style={[styles.card, { backgroundColor: '#fefce8', borderStyle: 'dashed', borderColor: '#eab308' }]}>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                                                         <AlertTriangle size={16} color="#854d0e" />
@@ -934,8 +972,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                     <View key={index} style={[styles.card, { backgroundColor: '#fff', marginBottom: 16, borderLeftWidth: 4, borderLeftColor: '#10b981' }]}>
                                                         {/* Header Row */}
                                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', paddingBottom: 8 }}>
-                                                            <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 }}>
-                                                                <Text style={{ color: '#166534', fontWeight: '700', fontSize: 12 }}>VERIFICATION #{index + 1}</Text>
+                                                            <View style={{ backgroundColor: '#f0fdf4', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, flex: 1, marginRight: 8 }}>
+                                                                <Text style={{ color: '#166534', fontWeight: '700', fontSize: 12 }} numberOfLines={1}>VERIFICATION #{index + 1}</Text>
                                                             </View>
                                                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                                                 <Clock size={12} color="#6b7280" />
@@ -1035,10 +1073,16 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                             {activeTab === 'engineer' && (
                                 <ScrollView
                                     style={styles.tabContent}
-                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 + insets.bottom }}
+                                    keyboardShouldPersistTaps="handled"
                                 >
                                     <Text style={styles.sectionTitle}>Engineer Assignment</Text>
-                                    {availableEngineers?.length === 0 ? (
+                                    {isLoadingEngineers ? (
+                                        <View style={{ padding: 40, alignItems: 'center' }}>
+                                            <ActivityIndicator size="large" color={COLORS.primary || '#2563eb'} />
+                                            <Text style={{ marginTop: 12, color: COLORS.textSecondary }}>Fetching available engineers...</Text>
+                                        </View>
+                                    ) : availableEngineers?.length === 0 ? (
                                         <View style={styles.emptyState}>
                                             <Text style={{ color: COLORS.textSecondary }}>No available engineers for {ticket.vendor_name || 'Vendor'}</Text>
                                         </View>
@@ -1055,14 +1099,14 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                             {selectedEngineerId == engineer.field_enginner_id && <View style={styles.radioInner} />}
                                                         </View>
                                                         <View style={{ flex: 1, marginLeft: 12 }}>
-                                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                                                                <Text style={styles.engineerName}>{engineer.field_enginner_fullname}</Text>
+                                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                <Text style={[styles.engineerName, { flex: 1, marginRight: 8 }]} numberOfLines={1}>{engineer.field_enginner_fullname}</Text>
                                                                 <Text style={styles.engineerVendor}>{engineer.vendor_name}</Text>
                                                             </View>
 
                                                             <View style={styles.engineerMetaRow}>
-                                                                <Text style={styles.engineerMeta}>Unit: {engineer.unit_name}</Text>
-                                                                <Text style={styles.engineerMeta}>Zone: {engineer.zone_name}</Text>
+                                                                <Text style={[styles.engineerMeta, { flex: 1 }]} numberOfLines={1}>Unit: {engineer.unit_name}</Text>
+                                                                <Text style={[styles.engineerMeta, { flex: 1 }]} numberOfLines={1}>Zone: {engineer.zone_name}</Text>
                                                             </View>
 
                                                             <View style={styles.engineerContactRow}>
@@ -1099,7 +1143,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                             {activeTab === 'status' && (
                                 <ScrollView
                                     style={styles.tabContent}
-                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
+                                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 + insets.bottom }}
+                                    keyboardShouldPersistTaps="handled"
                                     showsVerticalScrollIndicator={false}>
                                     <Text style={styles.sectionTitle}>Status Management</Text>
                                     {/* Logic simplified from original code for brevity but keeping structure */}
@@ -1146,35 +1191,42 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 {/* Status Modal */}
                                                 <Modal visible={isStatusModalVisible} transparent animationType="slide">
                                                     <View style={styles.modalOverlay}>
-                                                        <View style={styles.modalContent}>
+                                                        <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
                                                             <View style={styles.modalHeader}>
                                                                 <Text style={styles.modalTitle}>Select New Status</Text>
                                                                 <TouchableOpacity onPress={() => setIsStatusModalVisible(false)}>
                                                                     <X size={24} color={COLORS.text} />
                                                                 </TouchableOpacity>
                                                             </View>
-                                                            <ScrollView>
-                                                                {statusOptions.map((status) => (
-                                                                    <TouchableOpacity
-                                                                        key={status.status_id}
-                                                                        style={[
-                                                                            styles.optionItem,
-                                                                            selectedStatusId == status.status_id && styles.selectedOption
-                                                                        ]}
-                                                                        onPress={() => {
-                                                                            setSelectedStatusId(status.status_id);
-                                                                            setIsStatusModalVisible(false);
-                                                                        }}
-                                                                    >
-                                                                        <Text style={[
-                                                                            styles.optionText,
-                                                                            selectedStatusId == status.status_id && styles.selectedOptionText
-                                                                        ]}>
-                                                                            {status.status_name}
-                                                                        </Text>
-                                                                    </TouchableOpacity>
-                                                                ))}
-                                                            </ScrollView>
+                                                            {isLoadingStatuses ? (
+                                                                <View style={{ padding: 40, alignItems: 'center' }}>
+                                                                    <ActivityIndicator size="large" color={COLORS.primary || '#2563eb'} />
+                                                                    <Text style={{ marginTop: 12, color: COLORS.textSecondary }}>Fetching statuses...</Text>
+                                                                </View>
+                                                            ) : (
+                                                                <ScrollView>
+                                                                    {statusOptions.map((status) => (
+                                                                        <TouchableOpacity
+                                                                            key={status.status_id}
+                                                                            style={[
+                                                                                styles.optionItem,
+                                                                                selectedStatusId == status.status_id && styles.selectedOption
+                                                                            ]}
+                                                                            onPress={() => {
+                                                                                setSelectedStatusId(status.status_id);
+                                                                                setIsStatusModalVisible(false);
+                                                                            }}
+                                                                        >
+                                                                            <Text style={[
+                                                                                styles.optionText,
+                                                                                selectedStatusId == status.status_id && styles.selectedOptionText
+                                                                            ]}>
+                                                                                {status.status_name}
+                                                                            </Text>
+                                                                        </TouchableOpacity>
+                                                                    ))}
+                                                                </ScrollView>
+                                                            )}
                                                         </View>
                                                     </View>
                                                 </Modal>
@@ -1225,6 +1277,8 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 </View>
                                             </View>
 
+
+
                                             {/* Image Capture */}
                                             <View style={styles.imageCaptureContainer}>
                                                 <Text style={styles.sectionLabel}>Capture Image</Text>
@@ -1269,6 +1323,57 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 )}
                                             </View>
 
+                                            {/* Assigned Ticket Resolution Dropdown (Only if filter is Assigned '220' or Ticket Status is '220') */}
+                                            {(filterStatus === '220' || ticket?.ticket_status == '220') && (
+                                                <View style={{ marginBottom: 16 }}>
+                                                    <Text style={styles.inputLabel}>Resolution Status <Text style={{ color: 'red' }}>*</Text></Text>
+                                                    <TouchableOpacity
+                                                        style={styles.selectButton}
+                                                        onPress={() => setIsResolutionStatusModalVisible(true)}
+                                                    >
+                                                        <Text style={{ color: assignedResolutionStatus ? COLORS.text : COLORS.textSecondary }}>
+                                                            {assignedResolutionStatus === '1' ? 'Resolved' : assignedResolutionStatus === '2' ? 'Not Resolved' : 'Select Resolution Status'}
+                                                        </Text>
+                                                        <ChevronDown size={20} color={COLORS.textSecondary} />
+                                                    </TouchableOpacity>
+
+                                                    <Modal visible={isResolutionStatusModalVisible} transparent animationType="slide">
+                                                        <View style={styles.modalOverlay}>
+                                                            <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+                                                                <View style={styles.modalHeader}>
+                                                                    <Text style={styles.modalTitle}>Select Resolution Status</Text>
+                                                                    <TouchableOpacity onPress={() => setIsResolutionStatusModalVisible(false)}>
+                                                                        <X size={24} color={COLORS.text} />
+                                                                    </TouchableOpacity>
+                                                                </View>
+                                                                <View>
+                                                                    {[{ id: '1', name: 'Resolved' }, { id: '2', name: 'Not Resolved' }].map((option) => (
+                                                                        <TouchableOpacity
+                                                                            key={option.id}
+                                                                            style={[
+                                                                                styles.optionItem,
+                                                                                assignedResolutionStatus === option.id && styles.selectedOption
+                                                                            ]}
+                                                                            onPress={() => {
+                                                                                setAssignedResolutionStatus(option.id);
+                                                                                setIsResolutionStatusModalVisible(false);
+                                                                            }}
+                                                                        >
+                                                                            <Text style={[
+                                                                                styles.optionText,
+                                                                                assignedResolutionStatus === option.id && styles.selectedOptionText
+                                                                            ]}>
+                                                                                {option.name}
+                                                                            </Text>
+                                                                        </TouchableOpacity>
+                                                                    ))}
+                                                                </View>
+                                                            </View>
+                                                        </View>
+                                                    </Modal>
+                                                </View>
+                                            )}
+
                                             {/* Resolution Category Dropdown */}
                                             <View style={{ marginBottom: 16 }}>
                                                 <Text style={styles.inputLabel}>Problems Category</Text>
@@ -1285,7 +1390,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                 {/* Resolution Category Modal */}
                                                 <Modal visible={isResolutionCategoryModalVisible} transparent animationType="slide">
                                                     <View style={styles.modalOverlay}>
-                                                        <View style={styles.modalContent}>
+                                                        <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
                                                             <View style={styles.modalHeader}>
                                                                 <Text style={styles.modalTitle}>Select Problems Category</Text>
                                                                 <TouchableOpacity onPress={() => setIsResolutionCategoryModalVisible(false)}>
@@ -1364,7 +1469,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
                                                 <Modal visible={isSubResolutionCategoryModalVisible} transparent animationType="slide">
                                                     <View style={styles.modalOverlay}>
-                                                        <View style={styles.modalContent}>
+                                                        <View style={[styles.modalContent, { paddingBottom: Math.max(insets.bottom, 20) }]}>
                                                             <View style={styles.modalHeader}>
                                                                 <Text style={styles.modalTitle}>Select Sub Category</Text>
                                                                 <TouchableOpacity onPress={() => setIsSubResolutionCategoryModalVisible(false)}>
@@ -1372,7 +1477,12 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                                 </TouchableOpacity>
                                                             </View>
 
-                                                            {subResolutionCategories.length > 0 ? (
+                                                            {isLoadingSubResolutionCategories ? (
+                                                                <View style={{ padding: 40, alignItems: 'center' }}>
+                                                                    <ActivityIndicator size="large" color={COLORS.primary || '#2563eb'} />
+                                                                    <Text style={{ marginTop: 12, color: COLORS.textSecondary }}>Fetching sub-categories...</Text>
+                                                                </View>
+                                                            ) : subResolutionCategories.length > 0 ? (
                                                                 <ScrollView>
                                                                     {subResolutionCategories.map((sub) => (
                                                                         <TouchableOpacity
@@ -1594,7 +1704,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                         </View>
 
                         {/* Bottom Bar / Shutter */}
-                        <View style={styles.cameraBottomBar}>
+                        <View style={[styles.cameraBottomBar, { paddingBottom: insets.bottom + 10, height: 120 + insets.bottom }]}>
                             <TouchableOpacity
                                 style={styles.shutterButton}
                                 onPress={takePhotoAction}

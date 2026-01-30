@@ -28,11 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     useEffect(() => {
         // Check for stored user data on app startup
-        // Check for stored user data on app startup
         const loadStoredUser = async () => {
-            // Artificial delay for Splash Screen (2 seconds)
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
             try {
                 const storedUser = await AsyncStorage.getItem('user');
                 if (storedUser) {

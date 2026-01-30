@@ -88,7 +88,7 @@ const mockReports: HistoryReport[] = [
         size: '3.5 MB',
         format: 'CSV'
     },
-    
+
     {
         id: 'RPT007',
         title: 'Ticket Closure Rates - Q3 2024',
@@ -266,75 +266,78 @@ export const ReportHistory: React.FC = () => {
                         <Text style={styles.filterTitle}>Advanced Filter</Text>
                     </View>
 
-            <FlatList
-                data={paginatedReports}
-                renderItem={renderReportItem}
-                keyExtractor={item => item.id}
-                contentContainerStyle={styles.listContent}
-                showsVerticalScrollIndicator={false}
-                ListFooterComponent={() => (
-                    totalPages > 1 && !isKeyboardVisible ? (
-                        <View style={styles.pagination}>
-                            <View style={styles.pageInfo}>
-                                <Text style={styles.pageInfoText}>
-                                    Page <Text style={styles.bold}>{currentPage}</Text> of {totalPages}
-                                </Text>
-                                {fetchingMaster ? (
-                                    <ActivityIndicator size="small" color={COLORS.primary} />
-                                ) : (
-                                    <ChevronDown size={20} color={COLORS.textSecondary} />
-                                )}
-                            </TouchableOpacity>
-                        </View>
+                    <FlatList
+                        data={paginatedReports}
+                        renderItem={renderReportItem}
+                        keyExtractor={item => item.id}
+                        contentContainerStyle={styles.listContent}
+                        showsVerticalScrollIndicator={false}
+                        ListFooterComponent={() => (
+                            totalPages > 1 && !isKeyboardVisible ? (
+                                <View style={styles.pagination}>
+                                    <View style={styles.pageInfo}>
+                                        <Text style={styles.pageInfoText}>
+                                            Page <Text style={styles.bold}>{currentPage}</Text> of {totalPages}
+                                        </Text>
+                                        {fetchingMaster ? (
+                                            <ActivityIndicator size="small" color={COLORS.primary} />
+                                        ) : (
+                                            <ChevronDown size={20} color={COLORS.textSecondary} />
+                                        )}
+                                    </View>
+                                </View>
+                            ) : null
+                        )}
+                    />
 
-                        {/* Other filters (Placeholders for now) */}
-                        <View style={styles.filterItem}>
-                            <Text style={styles.filterLabel}>Police Station</Text>
-                            <View style={[styles.selectButton, styles.disabledButton]}>
-                                <Text style={styles.placeholderText}>Select Station</Text>
-                                <ChevronDown size={20} color="#cbd5e1" />
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Date Filters */}
-                    <View style={styles.dateRow}>
-                        <View style={[styles.filterItem, { flex: 1 }]}>
-                            <Text style={styles.filterLabel}>Start Date</Text>
-                            <View style={styles.dateInput}>
-                                <Calendar size={16} color={COLORS.primary} />
-                                <Text style={styles.dateText}>{formData.start_date}</Text>
-                            </View>
-                        </View>
-                        <View style={[styles.filterItem, { flex: 1 }]}>
-                            <Text style={styles.filterLabel}>End Date</Text>
-                            <View style={styles.dateInput}>
-                                <Calendar size={16} color={COLORS.primary} />
-                                <Text style={styles.dateText}>{formData.end_date}</Text>
-                            </View>
+                    {/* Other filters (Placeholders for now) */}
+                    <View style={styles.filterItem}>
+                        <Text style={styles.filterLabel}>Police Station</Text>
+                        <View style={[styles.selectButton, styles.disabledButton]}>
+                            <Text style={styles.placeholderText}>Select Station</Text>
+                            <ChevronDown size={20} color="#cbd5e1" />
                         </View>
                     </View>
-
-                    <TouchableOpacity
-                        style={styles.generateButton}
-                        activeOpacity={0.8}
-                    >
-                        <Search size={18} color="#fff" />
-                        <Text style={styles.generateButtonText}>Generate Report</Text>
-                    </TouchableOpacity>
                 </View>
 
-                {/* Info Message */}
-                <View style={styles.infoMessage}>
-                    <Text style={styles.infoText}>
-                        Select a DRO and click Generate Report to view history.
-                    </Text>
+                {/* Date Filters */}
+                <View style={styles.dateRow}>
+                    <View style={[styles.filterItem, { flex: 1 }]}>
+                        <Text style={styles.filterLabel}>Start Date</Text>
+                        <View style={styles.dateInput}>
+                            <Calendar size={16} color={COLORS.primary} />
+                            <Text style={styles.dateText}>{formData.start_date}</Text>
+                        </View>
+                    </View>
+                    <View style={[styles.filterItem, { flex: 1 }]}>
+                        <Text style={styles.filterLabel}>End Date</Text>
+                        <View style={styles.dateInput}>
+                            <Calendar size={16} color={COLORS.primary} />
+                            <Text style={styles.dateText}>{formData.end_date}</Text>
+                        </View>
+                    </View>
                 </View>
-            </ScrollView>
 
-            {/* Modals */}
-            {renderDropdownModal('DRO', regionOptions, formData.region_id, (id, name) => handleSelectDRO(id, name))}
+                <TouchableOpacity
+                    style={styles.generateButton}
+                    activeOpacity={0.8}
+                >
+                    <Search size={18} color="#fff" />
+                    <Text style={styles.generateButtonText}>Generate Report</Text>
+                </TouchableOpacity>
         </View>
+
+                {/* Info Message */ }
+    <View style={styles.infoMessage}>
+        <Text style={styles.infoText}>
+            Select a DRO and click Generate Report to view history.
+        </Text>
+    </View>
+            </ScrollView >
+
+    {/* Modals */ }
+{ renderDropdownModal('DRO', regionOptions, formData.region_id, (id, name) => handleSelectDRO(id, name)) }
+        </View >
     );
 };
 

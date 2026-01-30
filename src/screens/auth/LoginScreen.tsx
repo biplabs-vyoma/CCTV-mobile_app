@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, StatusBar, SafeAreaView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, StatusBar, SafeAreaView, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Wrench, Eye, EyeOff, ArrowLeft } from 'lucide-react-native';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
 import { Input } from '../../components/Input';
@@ -45,64 +45,72 @@ export const LoginScreen = () => {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={COLORS?.loginGradientStart || '#1d4ed8'} />
             <SafeAreaView style={styles.safeArea}>
-                {/* Header */}
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={{ flex: 1 }}
+                >
+                    <ScrollView
+                        contentContainerStyle={styles.scrollContent}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={styles.content}>
+                            {/* Icon */}
+                            <View style={styles.iconContainer}>
+                                <Wrench size={32} color={COLORS?.textInverse || '#fff'} />
+                            </View>
 
+                            <Text style={styles.title}>Field Engineer Login</Text>
+                            <Text style={styles.subtitle}>On-site maintenance and physical repairs</Text>
 
-                <View style={styles.content}>
-                    {/* Icon */}
-                    <View style={styles.iconContainer}>
-                        <Wrench size={32} color={COLORS?.textInverse || '#fff'} />
-                    </View>
+                            <View style={styles.form}>
+                                <Input
+                                    label="Email Address"
+                                    placeholder="Enter your email"
+                                    value={email}
+                                    onChangeText={setEmail}
+                                    autoCapitalize="none"
+                                    keyboardType="email-address"
+                                    placeholderTextColor="#9CA3AF"
+                                />
 
-                    <Text style={styles.title}>Field Engineer Login</Text>
-                    <Text style={styles.subtitle}>On-site maintenance and physical repairs</Text>
-
-                    <View style={styles.form}>
-                        <Input
-                            label="Email Address"
-                            placeholder="Enter your email"
-                            value={email}
-                            onChangeText={setEmail}
-                            autoCapitalize="none"
-                            keyboardType="email-address"
-                            placeholderTextColor="#9CA3AF"
-                        />
-
-                        <Input
-                            label="Password"
-                            placeholder="Enter your password"
-                            value={password}
-                            onChangeText={setPassword}
-                            secureTextEntry={!isPasswordVisible}
-                            placeholderTextColor="#9CA3AF"
-                            renderRightAccessory={() => (
-                                <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
-                                    {isPasswordVisible ? (
-                                        <EyeOff size={20} color={COLORS?.textInverse || '#fff'} />
-                                    ) : (
-                                        <Eye size={20} color={COLORS?.textInverse || '#fff'} opacity={0.7} />
+                                <Input
+                                    label="Password"
+                                    placeholder="Enter your password"
+                                    value={password}
+                                    onChangeText={setPassword}
+                                    secureTextEntry={!isPasswordVisible}
+                                    placeholderTextColor="#9CA3AF"
+                                    renderRightAccessory={() => (
+                                        <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)}>
+                                            {isPasswordVisible ? (
+                                                <EyeOff size={20} color={COLORS?.textInverse || '#fff'} />
+                                            ) : (
+                                                <Eye size={20} color={COLORS?.textInverse || '#fff'} opacity={0.7} />
+                                            )}
+                                        </TouchableOpacity>
                                     )}
+                                />
+
+                                <TouchableOpacity style={styles.forgotPassword}>
+                                    <Text style={styles.forgotPasswordText}>Forgot password?</Text>
                                 </TouchableOpacity>
-                            )}
-                        />
 
-                        <TouchableOpacity style={styles.forgotPassword}>
-                            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-                        </TouchableOpacity>
-
-                        <Button
-                            title="Sign In"
-                            onPress={handleLogin}
-                            loading={isLoggingIn}
-                            disabled={!email.trim() || !password.trim()}
-                            style={[
-                                styles.signInButton,
-                                (email.trim() && password.trim()) && styles.signInButtonActive
-                            ]}
-                            textStyle={(email.trim() && password.trim()) && styles.signInTextActive}
-                        />
-                    </View>
-                </View>
+                                <Button
+                                    title="Sign In"
+                                    onPress={handleLogin}
+                                    loading={isLoggingIn}
+                                    disabled={!email.trim() || !password.trim()}
+                                    style={[
+                                        styles.signInButton,
+                                        (email.trim() && password.trim()) && styles.signInButtonActive
+                                    ]}
+                                    textStyle={(email.trim() && password.trim()) && styles.signInTextActive}
+                                />
+                            </View>
+                        </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
             </SafeAreaView>
         </View>
     );
@@ -131,11 +139,15 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         marginLeft: SPACING.s,
     },
-    content: {
-        flex: 1,
-        paddingHorizontal: SPACING.l,
+    scrollContent: {
+        flexGrow: 1,
         justifyContent: 'center',
+    },
+    content: {
+        paddingHorizontal: SPACING.l,
         alignItems: 'center',
+        width: '100%',
+        paddingVertical: SPACING.l, // Add some vertical padding for scroll buffer
     },
     iconContainer: {
         width: 64,

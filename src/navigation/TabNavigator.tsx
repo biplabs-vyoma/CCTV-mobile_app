@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants/theme';
 import { LayoutDashboard, Video, ClipboardList, Activity, BarChart3, Bell } from 'lucide-react-native';
 import { CustomHeader } from '../components/CustomHeader';
@@ -18,6 +19,7 @@ const Tab = createBottomTabNavigator();
 export const TabNavigator = () => {
     // @ts-ignore
     const { user } = useAuth();
+    const insets = useSafeAreaInsets();
     const [unreadCount, setUnreadCount] = useState(0);
     const [activeRouteName, setActiveRouteName] = useState('Dashboard');
     const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -81,8 +83,8 @@ export const TabNavigator = () => {
                     : (COLORS?.primary || '#2563eb'),
                 tabBarInactiveTintColor: COLORS?.textSecondary || '#64748b',
                 tabBarStyle: {
-                    height: 60,
-                    paddingBottom: 8,
+                    height: 60 + insets.bottom,
+                    paddingBottom: 8 + insets.bottom,
                     paddingTop: 8,
                     backgroundColor: COLORS?.surface || '#fff',
                     borderTopColor: COLORS?.border || '#ccc',

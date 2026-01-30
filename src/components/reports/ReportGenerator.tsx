@@ -12,6 +12,7 @@ import {
     Modal,
     FlatList
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, BORDER_RADIUS, FONT_SIZES } from '../../constants/theme';
 import {
     FileText,
@@ -139,7 +140,7 @@ export const ReportGenerator: React.FC = () => {
             <View
                 style={styles.modalOverlay}
             >
-                <View style={styles.modalContent}>
+                <View style={[styles.modalContent, { paddingBottom: Math.max(useSafeAreaInsets().bottom, 20) }]}>
                     <View style={styles.modalHeader}>
                         <Text style={styles.modalTitle}>Select {title}</Text>
                         <TouchableOpacity onPress={() => setActiveModal(null)}>
