@@ -855,8 +855,9 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
 
                     {/* Content */}
                     <KeyboardAvoidingView
-                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
                         style={{ flex: 1 }}
+                        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
                     >
                         <View style={styles.content}>
                             {activeTab === 'details' && (
@@ -1148,10 +1149,10 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                     showsVerticalScrollIndicator={false}>
                                     <Text style={styles.sectionTitle}>Status Management</Text>
                                     {/* Logic simplified from original code for brevity but keeping structure */}
-                                    {(user?.user_type_id == '10' && ticket?.ticket_status == '240' && ticket?.ticket_created_user_id == user?.user_id) ||
-                                        (user?.user_type_id == '20' && (ticket?.ticket_status == '210' || ticket?.ticket_status == '230')) ||
-                                        (user?.user_type_id == '30' && ticket?.ticket_status == '220') ||
-                                        (user?.user_type_id == '40' && ticket?.ticket_status == '230') ? (
+                                    {(user?.user_type_id == 10 && ticket?.ticket_status == '240' && ticket?.ticket_created_user_id == user?.user_id) ||
+                                        (user?.user_type_id == 20 && (ticket?.ticket_status == '210' || ticket?.ticket_status == '230')) ||
+                                        (user?.user_type_id == 30 && ticket?.ticket_status == '220') ||
+                                        (user?.user_type_id == 40 && ticket?.ticket_status == '230') ? (
                                         <View>
                                             <View style={[styles.card, { backgroundColor: '#f9fafb' }]}>
                                                 <Text style={styles.infoTitle}>{ticket.cctv_name}</Text>
@@ -1162,7 +1163,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             </View>
 
                                             {/* Physical Verification Checkbox for User 10 */}
-                                            {user?.user_type_id == '10' && ticket?.ticket_status == '240' && (
+                                            {user?.user_type_id == 10 && ticket?.ticket_status == '240' && (
                                                 <View style={[styles.card, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe', borderWidth: 1 }]}>
                                                     <View style={{ flexDirection: 'row' }}>
                                                         <AlertTriangle size={20} color="#2563eb" />
@@ -1521,7 +1522,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             {(selectedResolutionCategoryName === 'Others' || (selectedResolutionCategoryName && selectedSubResolutionCategoryId)) && (
                                                 <>
                                                     <Text style={styles.inputLabel}>
-                                                        {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Final Closure Comments *' : 'Resolution Comments *'}
+                                                        {user?.user_type_id == 10 && ticket?.ticket_status == '240' ? 'Final Closure Comments *' : 'Resolution Comments *'}
                                                     </Text>
                                                     <TextInput
                                                         style={[styles.textArea, selectedResolutionCategoryName !== 'Others' && { backgroundColor: '#F3F4F6' }]}
@@ -1536,7 +1537,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             )}
 
                                             {/* Rating for User 10 */}
-                                            {user?.user_type_id == '10' && ticket?.ticket_status == '240' && (
+                                            {user?.user_type_id == 10 && ticket?.ticket_status == '240' && (
                                                 <View style={{ marginTop: 16 }}>
                                                     <Text style={styles.inputLabel}>Rate Resolution Quality</Text>
                                                     <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -1557,7 +1558,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                     style={[
                                                         styles.primaryButton,
                                                         { flex: 1 },
-                                                        ((user?.user_type_id == '10')
+                                                        ((user?.user_type_id == 10)
                                                             ? (!isPhysicallyVerified || (selectedResolutionCategoryName === 'Others' && !statusComments.trim()))
                                                             : ((selectedResolutionCategoryName === 'Others' && !statusComments.trim()) ||
                                                                 (!selectedResolutionCategoryId && ![20].includes(Number(user?.user_type_id))))
@@ -1565,14 +1566,14 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                                     ]}
                                                     onPress={handleResolveTicket}
                                                     disabled={
-                                                        (user?.user_type_id == '10')
+                                                        (user?.user_type_id == 10)
                                                             ? (!isPhysicallyVerified || (selectedResolutionCategoryName === 'Others' && !statusComments.trim()))
                                                             : ((selectedResolutionCategoryName === 'Others' && !statusComments.trim()) ||
                                                                 (!selectedResolutionCategoryId && ![20].includes(Number(user?.user_type_id))))
                                                     }
                                                 >
                                                     <Text style={styles.buttonText}>
-                                                        {user?.user_type_id == '10' && ticket?.ticket_status == '240' ? 'Close Ticket' : 'Submit'}
+                                                        {user?.user_type_id == 10 && ticket?.ticket_status == '240' ? 'Close Ticket' : 'Submit'}
                                                     </Text>
                                                 </TouchableOpacity>
                                             </View>
