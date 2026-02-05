@@ -5,23 +5,21 @@ export const getCCtvMonitoringList = async (
     statusId: string,
     zoneId: string,
     regionId: string,
+    unitId: string,
     vendorId: string | null,
     userId: number | undefined,
-    userTypeId: number | undefined
+    userTypeId: number | undefined,
+    ticketStatusId: string // New parameter
 ) => {
-
-
-    console.log('getCCtvMonitoringList', statusId, zoneId, vendorId, userId, userTypeId);
-
-
-
     return await callAPIWithEnc('user/getCCtvMonitoringList', 'POST', {
         cctv_status_id: statusId,
         zone_id: zoneId,
         region_id: regionId,
+        unit_id: unitId,
         vendor_id: vendorId,
         user_id: userId,
         user_type_id: userTypeId,
+        ticket_status_id: ticketStatusId,
     });
 };
 
@@ -43,14 +41,20 @@ export const getRegions = async () => {
     return await callAPIWithEnc('master/getRegion', 'POST', {});
 };
 
-export const getUnits = async () => {
-    return await callAPIWithEnc('master/getUnit', 'POST', {});
+export const getUnits = async (regionId?: string) => {
+    return await callAPIWithEnc('master/getUnit', 'POST', {
+        region_id: regionId || '0'
+    });
 };
 
 export const getSubunits = async () => {
-    return await callAPIWithEnc('master/getSubunit', 'POST', {});
+    return await callAPIWithEnc('master/getSubUnit', 'POST', {});
 };
 
-export const getCCTVTypes = async () => {
-    return await callAPIWithEnc('master/getCCtvType', 'POST', {});
+export const getDiagnosis = async (cctvId: string) => {
+    return await callAPIWithEnc('user/getCCtvDiagnosis', 'POST', { cctv_id: cctvId });
+};
+
+export const getTicketStatuses = async () => {
+    return await callAPIWithEnc('master/getStatusDetails', 'POST', {});
 };

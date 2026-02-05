@@ -17,7 +17,7 @@ import { CCTVFilters } from '../../components/cctv/CCTVFilters';
 // import { AddCameraModal } from '../../components/cctv/AddCameraModal';
 import { NetworkDiagnosticsModal } from '../../components/cctv/NetworkDiagnosticsModal';
 import { COLORS, SPACING, FONT_SIZES, BORDER_RADIUS } from '../../constants/theme';
-import { Plus, Activity, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Plus, Activity, AlertCircle, ChevronLeft, ChevronRight, Search, VideoOff } from 'lucide-react-native';
 import { CustomAlert } from '../../components/CustomAlert';
 
 export const CCTVMonitorScreen = () => {
@@ -43,14 +43,21 @@ export const CCTVMonitorScreen = () => {
 
     const [filters, setFilters] = useState({
         status: '0',
-        zone: '0',
-        region: '0',
-        vendor: user?.vendor_id ? user.vendor_id.toString() : '0',
-        status_name: '',
+        zone: '',
+        region: '',
+        unit: '',
+        vendor: user?.vendor_id ? user.vendor_id.toString() : '',
+        status_name: 'All Statuses',
         zone_name: '',
         region_name: '',
+        unit_name: '',
         vendor_name: user?.vendor_name || '',
         search: '',
+        ticket_status: '0',
+        ticket_status_name: '',
+        camera_name: '',
+        serial_number: '',
+        ip_address: '',
     });
 
     // Permissions
@@ -65,22 +72,26 @@ export const CCTVMonitorScreen = () => {
             const effectiveVendorId = user?.vendor_id || filters.vendor;
 
             const response = await getCCtvMonitoringList(
-                filters.status,
-                filters.zone,
-                filters.region,
+                filters.status || '0',
+                filters.zone || '0',
+                filters.region || '0',
+                filters.unit || '0',
                 effectiveVendorId ? effectiveVendorId.toString() : null,
                 user?.user_id,
-                user?.user_type_id
+                user?.user_type_id,
+                filters.ticket_status
             );
 
             console.log('CCTV List Response:', response);
             setCCTVsData(response?.data || []);
+            // Reset to page 1 on new search
+            setCurrentPage(1);
         } catch (error) {
             console.error(error);
             setAlertConfig({
                 visible: true,
-                title: 'Failed',
-                message: 'Failed to fetch CCTV list',
+                title: 'Search Failed',
+                message: 'Failed to fetch CCTV list based on filters',
                 type: 'error'
             });
         } finally {
@@ -89,9 +100,31 @@ export const CCTVMonitorScreen = () => {
         }
     };
 
-    useEffect(() => {
-        fetchData();
+    const handleSearch = () => {
+        // Validation: Mandatory Fields
+        if (filters.status === '') {
+            setAlertConfig({ visible: true, title: 'Input Required', message: 'Please select a Live Status', type: 'warning' });
+            return;
+        }
+        if (filters.region === '') {
+            setAlertConfig({ visible: true, title: 'Input Required', message: 'Please select a DRO (Region)', type: 'warning' });
+            return;
+        }
+        if (filters.zone === '') {
+            setAlertConfig({ visible: true, title: 'Input Required', message: 'Please select a Police Station', type: 'warning' });
+            return;
+        }
+        if (filters.unit === '') {
+            setAlertConfig({ visible: true, title: 'Input Required', message: 'Please select a Traffic Guard', type: 'warning' });
+            return;
+        }
 
+        fetchData();
+    };
+
+    useEffect(() => {
+        // Initial load removed as per request - user must search manually
+        // Only keep keyboard listeners
         const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
         const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
 
@@ -99,35 +132,42 @@ export const CCTVMonitorScreen = () => {
             keyboardDidShowListener.remove();
             keyboardDidHideListener.remove();
         };
-    }, [filters.status, filters.zone, filters.vendor]); // Refetch on core API filters
+    }, []);
 
-    // Local Filtering (Search + complex logic)
+    // Local Filtering (Specific Camera Details)
     const filteredData = useMemo(() => {
         if (!cctvsData) return null;
         let result = [...cctvsData];
 
-        // 1. Search Filter
-        if (filters.search) {
-            const searchLower = filters.search.toLowerCase();
-            result = result.filter(c =>
-                c.cctv_name?.toLowerCase().includes(searchLower) ||
-                c.cctv_location_address?.toLowerCase().includes(searchLower) ||
-                c.cctv_serial_number?.toLowerCase().includes(searchLower)
-            );
+        // 1. Camera Name
+        if (filters.camera_name) {
+            const nameLower = filters.camera_name.toLowerCase();
+            result = result.filter(c => c.cctv_name?.toLowerCase().includes(nameLower));
         }
 
-        // 2. Vendor Name Filter (if not locked by API)
+        // 2. Serial Number
+        if (filters.serial_number) {
+            const snLower = filters.serial_number.toLowerCase();
+            result = result.filter(c => c.cctv_serial_number?.toLowerCase().includes(snLower));
+        }
+
+        // 3. IP Address
+        if (filters.ip_address) {
+            result = result.filter(c => c.cctv_ip_port?.includes(filters.ip_address));
+        }
+
+        // 4. Vendor Name Filter (if not locked by API)
         if (!user?.vendor_id && filters.vendor !== '0' && filters.vendor_name) {
             result = result.filter(c => c.cctv_vendor_name === filters.vendor_name);
         }
 
         return result;
-    }, [cctvsData, filters.search, filters.vendor_name, user?.vendor_id, filters.vendor]);
+    }, [cctvsData, filters.camera_name, filters.serial_number, filters.ip_address, filters.vendor_name, user?.vendor_id, filters.vendor]);
 
     // Reset pagination on filter change
     useEffect(() => {
         setCurrentPage(1);
-    }, [filters.search, filters.vendor_name, filters.status, filters.zone, filters.vendor]);
+    }, [filters.camera_name, filters.serial_number, filters.ip_address, filters.vendor_name, filters.status, filters.zone, filters.region, filters.unit, filters.vendor]);
 
 
     const onRefresh = () => {
@@ -206,6 +246,8 @@ export const CCTVMonitorScreen = () => {
             <CCTVFilters
                 filters={filters}
                 onFilterChange={setFilters}
+                onSearch={handleSearch}
+                onClear={() => setCCTVsData(null)}
                 totalCameras={filteredData?.length || 0}
                 user={user}
                 lockVendor={isVendorLocked}
@@ -223,10 +265,23 @@ export const CCTVMonitorScreen = () => {
                     ListEmptyComponent={
                         !isLoading ? (
                             <View style={styles.emptyState}>
-                                <AlertCircle size={48} color={COLORS.textSecondary} />
-                                <Text style={styles.emptyText}>
-                                    {cctvsData === null ? 'No data' : 'No cameras found'}
-                                </Text>
+                                {cctvsData === null ? (
+                                    <>
+                                        <Search size={64} color={COLORS.primary + '40'} style={styles.emptyIcon} />
+                                        <Text style={styles.emptyTitle}>Ready to search?</Text>
+                                        <Text style={styles.emptySubText}>
+                                            Use the filters above to find CCTV cameras.
+                                        </Text>
+                                    </>
+                                ) : (
+                                    <>
+                                        <VideoOff size={64} color={COLORS.textSecondary + '40'} style={styles.emptyIcon} />
+                                        <Text style={styles.emptyTitle}>No cameras found</Text>
+                                        <Text style={styles.emptySubText}>
+                                            Try adjusting your filters to broaden your search.
+                                        </Text>
+                                    </>
+                                )}
                             </View>
                         ) : null
                     }
@@ -447,5 +502,21 @@ const styles = StyleSheet.create({
         marginTop: SPACING.m,
         fontSize: FONT_SIZES.m,
         color: COLORS.textSecondary,
+    },
+    emptyTitle: {
+        fontSize: FONT_SIZES.l,
+        fontWeight: 'bold',
+        color: COLORS.textPrimary,
+        marginTop: SPACING.m,
+    },
+    emptySubText: {
+        fontSize: FONT_SIZES.s,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        marginTop: SPACING.xs,
+        paddingHorizontal: SPACING.l,
+    },
+    emptyIcon: {
+        marginBottom: SPACING.s,
     },
 });

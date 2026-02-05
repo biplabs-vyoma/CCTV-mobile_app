@@ -196,6 +196,12 @@ export const TicketQueueScreen: React.FC = () => {
                 category_id: Number(currentFilters.category_id || 0),
                 ticket_status_id: Number(currentFilters.status_id || 0),
                 region_id: Number(currentFilters.dro_id || 0),
+                cctv_status_id: 0,
+                zone_id: 0,
+                unit_id:0,
+                camera_name:"",
+                camera_ip_address:"",
+                camera_serial_number:"",
             };
 
             console.log('Payload:', JSON.stringify(payload, null, 2));
