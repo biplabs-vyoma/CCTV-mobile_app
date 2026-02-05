@@ -1522,7 +1522,7 @@ export const TicketDetailsModal: React.FC<TicketDetailsModalProps> = ({
                                             {(selectedResolutionCategoryName === 'Others' || (selectedResolutionCategoryName && selectedSubResolutionCategoryId)) && (
                                                 <>
                                                     <Text style={styles.inputLabel}>
-                                                        {user?.user_type_id == 10 && ticket?.ticket_status == '240' ? 'Final Closure Comments *' : 'Resolution Comments *'}
+                                                        {user?.user_type_id == 10 && ticket?.ticket_status == '240' ? 'Final Closure Comments *' : 'Comments *'}
                                                     </Text>
                                                     <TextInput
                                                         style={[styles.textArea, selectedResolutionCategoryName !== 'Others' && { backgroundColor: '#F3F4F6' }]}
